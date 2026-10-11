@@ -16,6 +16,22 @@ class ModelRegistryTests(unittest.TestCase):
         self.assertIn("ornith-1.5-35b", model_ids)
         self.assertIn("nemotron-3.5-30b", model_ids)
 
+    def test_deepseek_v4_flash_dspark_config(self):
+        model = self.registry.get_model("deepseek-v4-flash")
+        self.assertIsNotNone(model)
+        # DSpark drafter asset + Route A variants shipped with provenance
+        self.assertIn("draft", model)
+        self.assertEqual(model["draft"]["filename"], "DeepSeek-V4-Flash-0731-DSpark-draft-bf16.gguf")
+        self.assertIn("source", model["draft"])
+        self.assertIn("ROCMFP2_STRIX", model["variants"])
+        self.assertIn("ROCMFPX_MIX_STRIX", model["variants"])
+        for name in ("IQ2_XXS", "ROCMFP2_STRIX", "ROCMFPX_MIX_STRIX"):
+            self.assertIn("source", model["variants"][name])
+        # run_config drives draft-dspark (block_size 5) on the HIP backend
+        self.assertEqual(model["run_config"]["spec_type"], "draft-dspark")
+        self.assertEqual(model["run_config"]["draft_n"], 5)
+        self.assertEqual(model["run_config"]["backend"], "ROCm0")
+
     def test_ornith_15_config(self):
         model = self.registry.get_model("ornith-1.5-35b")
         self.assertIsNotNone(model)

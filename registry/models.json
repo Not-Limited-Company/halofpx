@@ -207,13 +207,39 @@
     "category": "Ultra-Scale MoE Reasoning",
     "hf_repo": "julianmb/DeepSeek-V4-Flash-0731-IQ2XXS-STRIX",
     "default_variant": "IQ2_XXS",
+    "draft": {
+      "filename": "DeepSeek-V4-Flash-0731-DSpark-draft-bf16.gguf",
+      "size_gib": 10.9,
+      "sha256": "",
+      "source": "converted from deepseek-ai/DeepSeek-V4-Flash-DSpark (official DSpark mtp.* head: 3 blocks, block_size=5, markov_rank=256, target_layers=[40,41,42]) via engine convert_hf_to_gguf.py --dspark; bf16 head with lossless MXFP4 expert repack. Build with scripts/build_dspark_drafter.sh",
+      "build_script": "scripts/build_dspark_drafter.sh"
+    },
     "variants": {
       "IQ2_XXS": {
         "filename": "DeepSeek-V4-Flash-0731-IQ2XXS-STRIX.gguf",
         "bpw": 2.06,
         "size_gib": 86.7,
         "min_vram_gib": 90.0,
-        "sha256": ""
+        "sha256": "",
+        "source": "IQ2_XXS-w2Q2K-AProjQ8-SExpQ8-OutQ8 STRIX block quant of DeepSeek-V4-Flash-0731 (284B MoE) from julianmb/DeepSeek-V4-Flash-0731-IQ2XXS-STRIX"
+      },
+      "ROCMFP2_STRIX": {
+        "filename": "DeepSeek-V4-Flash-ROCMFP2-STRIX.gguf",
+        "hf_repo": "Lucebox/DeepSeek-V4-Flash-0731-ROCmFP3",
+        "bpw": 2.88,
+        "size_gib": 102.0,
+        "min_vram_gib": 112.0,
+        "sha256": "",
+        "source": "upstream Lucebox/DeepSeek-V4-Flash-0731-ROCmFP3 ROCmFP2 STRIX block quant of DeepSeek-V4-Flash-0731 (Route A)"
+      },
+      "ROCMFPX_MIX_STRIX": {
+        "filename": "DeepSeek-V4-Flash-0731-ROCMFPX-MIX-STRIX.gguf",
+        "hf_repo": "Lucebox/DeepSeek-V4-Flash-0731-ROCmFP3",
+        "bpw": 2.88,
+        "size_gib": 98.3,
+        "min_vram_gib": 108.0,
+        "sha256": "",
+        "source": "upstream Lucebox/DeepSeek-V4-Flash-0731-ROCmFP3 ROCmFPX-MIX STRIX block quant of DeepSeek-V4-Flash-0731 (Route A)"
       }
     },
     "run_config": {
@@ -221,6 +247,11 @@
       "n_gpu_layers": 99,
       "flash_attn": true,
       "mtp_enabled": false,
+      "spec_type": "draft-dspark",
+      "draft_n": 5,
+      "draft_p": 0.0,
+      "draft_ngl": 99,
+      "backend": "ROCm0",
       "threads": 16
     }
   },

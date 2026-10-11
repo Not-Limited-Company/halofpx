@@ -138,12 +138,16 @@ def cmd_list(args):
 
 def cmd_pull(args):
     model_mgr = ModelManager()
-    res = model_mgr.pull_model(args.model_id, args.variant)
+    res = model_mgr.pull_model(args.model_id, args.variant, with_draft=args.with_draft)
     if res.get("status") == "success":
         print(f"\n{green('✅ Successfully pulled')} {res['model_id']}:{res['variant']} ({res['size_gib']} GiB)")
         print(f"Location: {res['local_path']}\n")
         if res.get("vision_ready"):
             print(f"{green('✅ Vision projector ready')}: {res['mmproj_path']}\n")
+        if res.get("draft_ready"):
+            print(f"{green('✅ DSpark drafter ready')}: {res['draft_path']}\n")
+        elif res.get("draft_path") is None and res.get("status") == "success":
+            pass  # model has no draft asset, or not pulled yet
     else:
         print(f"\n{red('❌ Pull failed:')} {res.get('message')}\n")
 
@@ -156,6 +160,7 @@ def cmd_load(args):
         "slots": args.slots,
         "draft_n": args.draft_n,
         "draft_p": args.draft_p,
+        "spec_type": getattr(args, "spec_type", None),
         "strict_mtp": args.strict,
         "reasoning_budget": args.reasoning_budget,
         "reasoning_mode": args.reasoning,
@@ -191,6 +196,7 @@ def cmd_load(args):
             slots=args.slots,
             draft_n=args.draft_n,
             draft_p=args.draft_p,
+            spec_type_override=getattr(args, "spec_type", None),
             strict_mtp=args.strict,
             device=args.device,
             cache_ram_mib=args.cache_ram,
@@ -384,8 +390,11 @@ def build_parser() -> argparse.ArgumentParser:
     p_run.add_argument("--variant", help="Quantization variant")
     p_run.add_argument("--ctx", type=int, help="Context window size override")
     p_run.add_argument("--slots", type=int, help="Number of concurrent server slots")
-    p_run.add_argument("--draft-n", type=int, help="Max MTP draft tokens")
-    p_run.add_argument("--draft-p", type=float, help="Min MTP probability threshold")
+    p_run.add_argument("--draft-n", type=int, help="Max draft tokens (MTP or DSpark)")
+    p_run.add_argument("--draft-p", type=float, help="Min draft probability threshold")
+    p_run.add_argument("--spec-type", dest="spec_type", default=None,
+                       choices=["none", "draft-mtp", "draft-dspark", "draft-dflash"],
+                       help="Override speculative decoding mode")
     p_run.add_argument("--strict", action="store_true", help="Strict lossless greedy verification")
     p_run.add_argument("--device", choices=["Vulkan0", "ROCm0"], help="Compute backend override")
     p_run.add_argument("--reasoning", default="auto", choices=["auto", "on", "off"], help="Reasoning mode")
@@ -422,6 +431,11 @@ def build_parser() -> argparse.ArgumentParser:
     p_pull = subparsers.add_parser("pull", help="Download a model from Hugging Face")
     p_pull.add_argument("model_id", help="Registered model identifier")
     p_pull.add_argument("--variant", help="Quantization variant")
+    p_pull.add_argument(
+        "--with-draft",
+        action="store_true",
+        help="Also build the DSpark drafter for speculative decode (deepseek-v4-flash)",
+    )
 
     # load
     p_load = subparsers.add_parser("load", help="Load a model into unified memory / VRAM")
@@ -429,8 +443,11 @@ def build_parser() -> argparse.ArgumentParser:
     p_load.add_argument("--variant", help="Quantization variant")
     p_load.add_argument("--ctx", type=int, help="Context window size override")
     p_load.add_argument("--slots", type=int, help="Number of concurrent server slots")
-    p_load.add_argument("--draft-n", type=int, help="Max MTP draft tokens")
-    p_load.add_argument("--draft-p", type=float, help="Min MTP probability threshold")
+    p_load.add_argument("--draft-n", type=int, help="Max draft tokens (MTP or DSpark)")
+    p_load.add_argument("--draft-p", type=float, help="Min draft probability threshold")
+    p_load.add_argument("--spec-type", dest="spec_type", default=None,
+                        choices=["none", "draft-mtp", "draft-dspark", "draft-dflash"],
+                        help="Override speculative decoding mode")
     p_load.add_argument("--strict", action="store_true", help="Strict lossless greedy verification")
     p_load.add_argument("--device", choices=["Vulkan0", "ROCm0"], help="Compute backend override")
     p_load.add_argument("--reasoning", default="auto", choices=["auto", "on", "off"], help="Reasoning mode")

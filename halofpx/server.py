@@ -78,6 +78,7 @@ class LoadRequest(BaseModel):
     slots: Optional[int] = None
     draft_n: Optional[int] = None
     draft_p: Optional[float] = None
+    spec_type: Optional[str] = None
     strict_mtp: Optional[bool] = False
     reasoning_budget: Optional[int] = 4096
     reasoning_mode: Optional[str] = "auto"
@@ -239,6 +240,7 @@ async def load_model(req: LoadRequest):
             slots=req.slots,
             draft_n=req.draft_n,
             draft_p=req.draft_p,
+            spec_type_override=req.spec_type,
             strict_mtp=req.strict_mtp or False,
             reasoning_budget=req.reasoning_budget,
             reasoning_mode=req.reasoning_mode or "auto",

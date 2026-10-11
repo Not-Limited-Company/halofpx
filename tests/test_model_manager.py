@@ -29,6 +29,33 @@ class FakeRegistry:
         }
 
 
+class DraftRegistry(FakeRegistry):
+    """Registry whose model carries a top-level `draft` (DSpark drafter) asset."""
+
+    def get_model(self, model_id):
+        if model_id != "draft-model":
+            return super().get_model(model_id)
+        return {
+            "model_id": model_id,
+            "hf_repo": "owner/model",
+            "default_variant": "IQ2_XXS",
+            "variants": {
+                "IQ2_XXS": {
+                    "filename": "model.gguf",
+                    "sha256": "",
+                }
+            },
+            "draft": {
+                "filename": "draft-bf16.gguf",
+                "sha256": "",
+                "build_script": "scripts/build_dspark_drafter.sh",
+            },
+        }
+
+    def get_draft_file_path(self, model_id):
+        return None  # not built locally yet
+
+
 class ModelManagerTests(unittest.TestCase):
     def test_pull_multimodal_model_downloads_projector(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -54,6 +81,55 @@ class ModelManagerTests(unittest.TestCase):
                 ("owner/model", "model.gguf"),
                 ("owner/model", "mmproj.gguf"),
             ])
+
+
+class DraftPullTests(unittest.TestCase):
+    def test_pull_with_draft_builds_drafter(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            manager = ModelManager(DraftRegistry())
+            downloads = []
+
+            def download(repo_id, filename, target_dir):
+                downloads.append((repo_id, filename))
+                path = target_dir / filename
+                path.write_bytes(b"test")
+                return path
+
+            def fake_build(model_id, draft, target_dir):
+                built = target_dir / draft["filename"]
+                built.write_bytes(b"draft")
+                return built
+
+            with patch("halofpx.model_manager.MODELS_DIR", root), \
+                 patch.object(manager, "_download_file", side_effect=download), \
+                 patch.object(manager, "_build_draft", side_effect=fake_build):
+                result = manager.pull_model("draft-model", with_draft=True)
+
+            self.assertEqual(result["status"], "success")
+            self.assertTrue(result["draft_ready"])
+            self.assertEqual(Path(result["draft_path"]).name, "draft-bf16.gguf")
+            self.assertEqual(downloads, [("owner/model", "model.gguf")])
+
+    def test_pull_without_draft_skips_build(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            manager = ModelManager(DraftRegistry())
+
+            def download(repo_id, filename, target_dir):
+                path = target_dir / filename
+                path.write_bytes(b"test")
+                return path
+
+            with patch("halofpx.model_manager.MODELS_DIR", root), \
+                 patch.object(manager, "_download_file", side_effect=download), \
+                 patch.object(manager, "_build_draft", return_value=None) as mock_build:
+                result = manager.pull_model("draft-model", with_draft=False)
+
+            self.assertEqual(result["status"], "success")
+            self.assertFalse(result["draft_ready"])
+            self.assertIsNone(result["draft_path"])
+            mock_build.assert_not_called()
 
 
 class ShardedRegistry(FakeRegistry):

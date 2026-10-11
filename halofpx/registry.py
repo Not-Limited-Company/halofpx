@@ -421,3 +421,20 @@ class ModelRegistry:
             return self.resolve_local_file(mmproj_name, model_id=model_id)
         return None
 
+    def get_draft_info(self, model_id: str) -> Optional[Dict[str, Any]]:
+        """Return the top-level `draft` asset (DSpark drafter) for a model, if any."""
+        model = self.get_model(model_id)
+        if not model:
+            return None
+        draft = model.get("draft")
+        if draft and draft.get("filename"):
+            return draft
+        return None
+
+    def get_draft_file_path(self, model_id: str) -> Optional[Path]:
+        """Resolve the local path of a model's DSpark drafter, if present on disk."""
+        info = self.get_draft_info(model_id)
+        if not info:
+            return None
+        return self.resolve_local_file(info.get("filename"), model_id=model_id)
+

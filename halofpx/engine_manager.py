@@ -112,6 +112,7 @@ class EngineManager:
         slots: Optional[int] = None,
         draft_n: Optional[int] = None,
         draft_p: Optional[float] = None,
+        spec_type_override: Optional[str] = None,
         strict_mtp: bool = False,
         reasoning_budget: Optional[int] = 4096,
         reasoning_mode: str = "auto",
@@ -178,11 +179,19 @@ class EngineManager:
         use_mtp = cfg.get("mtp_enabled", True)
         if optimization_mode == "cache":
             use_mtp = False
-            cache_enabled = True
+            cache_enabled = False
+            spec_type = None
         elif optimization_mode == "speed":
             cache_enabled = False
         else:
             cache_enabled = True
+
+        if optimization_mode != "cache":
+            spec_type = (spec_type_override or cfg.get("spec_type") or "").strip() or None
+            if spec_type == "none":
+                spec_type = None
+            elif spec_type is None and use_mtp:
+                spec_type = "draft-mtp"
         slot_count = slots if slots is not None else cfg.get("slots", 1)
         d_n = draft_n if draft_n is not None else cfg.get("draft_n", 4)
         d_p = draft_p if draft_p is not None else cfg.get("draft_p", 0.0)
@@ -234,14 +243,53 @@ class EngineManager:
             ])
             cache_profile = {"name": "MTP-speed", "enabled": False}
 
-        if use_mtp:
-            cmd.extend([
-                "--spec-type", "draft-mtp",
-                "--spec-draft-n-max", str(d_n),
-                "--spec-draft-p-min", str(d_p)
-            ])
-            if strict_mtp:
-                cmd.append("--spec-mtp-strict-qwen")
+        if spec_type:
+            if spec_type in ("draft-dspark", "draft-dflash"):
+                # DSpark/DFlash drafter: separate dflash GGUF that reuses the target's
+                # output.weight + fused dflash HC ops — HIP-only in this engine pin
+                # (Vulkan aborts at graph build, see docs/DSPARK_GUIDE.md).
+                draft_file = self.registry.get_draft_file_path(model_id)
+                if draft_file and draft_file.exists():
+                    if target_device.startswith("Vulkan"):
+                        devices_out = ""
+                        try:
+                            res = subprocess.run(
+                                [str(engine_bin), "--list-devices"],
+                                capture_output=True, text=True, timeout=5,
+                            )
+                            devices_out = res.stdout + res.stderr
+                        except Exception:
+                            pass
+                        if "ROCm0" in devices_out:
+                            print("⚠️  [DSPARK NOTICE] Draft decode is HIP-only (fused dflash ops); switching device Vulkan0 -> ROCm0.")
+                            target_device = "ROCm0"
+                            cmd[cmd.index("-dev") + 1] = target_device
+                        else:
+                            print("⚠️  [DSPARK NOTICE] DSpark draft requires a HIP device (none found); disabling speculation.")
+                            spec_type = None
+                    if spec_type:
+                        cmd.extend([
+                            "--spec-type", spec_type,
+                            "-md", str(draft_file),
+                            "--spec-draft-n-max", str(d_n),
+                            "--spec-draft-p-min", str(d_p),
+                        ])
+                        if cfg.get("draft_ngl"):
+                            cmd.extend(["--spec-draft-ngl", str(cfg["draft_ngl"])])
+                else:
+                    print(
+                        f"⚠️  DSpark drafter not found for '{model_id}'. Run `halofpx pull {model_id} --with-draft` "
+                        "(or scripts/build_dspark_drafter.sh) to enable speculative decode; falling back to bare decode."
+                    )
+            else:
+                # hybrid-attention MTP (mtp_enabled) or explicit --spec-type passthrough
+                cmd.extend([
+                    "--spec-type", spec_type,
+                    "--spec-draft-n-max", str(d_n),
+                    "--spec-draft-p-min", str(d_p),
+                ])
+                if strict_mtp and spec_type == "draft-mtp":
+                    cmd.append("--spec-mtp-strict-qwen")
 
         if reasoning_mode == "off":
             cmd.extend(["--reasoning", "off"])

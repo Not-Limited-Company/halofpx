@@ -88,6 +88,129 @@ class CacheProfileTests(unittest.TestCase):
 
 
 
+    @mock.patch("halofpx.engine_manager.urllib.request.urlopen")
+    @mock.patch("halofpx.engine_manager.subprocess.Popen")
+    def test_dspark_draft_flags_emitted_on_rocm(self, mock_popen, mock_urlopen):
+        """deepseek-v4-flash (spec_type: draft-dspark) with a local drafter on ROCm0."""
+        mock_resp = mock.Mock()
+        mock_resp.status = 200
+        mock_urlopen.return_value.__enter__.return_value = mock_resp
+        mock_proc = mock.Mock()
+        mock_proc.poll.return_value = None
+        mock_popen.return_value = mock_proc
+
+        manager = EngineManager()
+        with tempfile.NamedTemporaryFile() as fake_model, \
+             tempfile.NamedTemporaryFile() as fake_bin, \
+             tempfile.NamedTemporaryFile() as fake_draft:
+            with mock.patch.object(manager.registry, "get_model_file_path", return_value=Path(fake_model.name)), \
+                 mock.patch.object(manager.registry, "get_draft_file_path", return_value=Path(fake_draft.name)), \
+                 mock.patch("halofpx.engine_manager.get_engine_binary", return_value=Path(fake_bin.name)):
+                res = manager.load_model("deepseek-v4-flash")
+                self.assertEqual(res["status"], "success")
+
+                cmd = mock_popen.call_args[0][0]
+                self.assertIn("--spec-type", cmd)
+                self.assertIn("draft-dspark", cmd)
+                self.assertEqual(cmd[cmd.index("-md") + 1], fake_draft.name)
+                self.assertEqual(cmd[cmd.index("--spec-draft-n-max") + 1], "5")
+                self.assertEqual(cmd[cmd.index("--spec-draft-p-min") + 1], "0.0")
+                self.assertEqual(cmd[cmd.index("--spec-draft-ngl") + 1], "99")
+                # run_config sets backend ROCm0 for this model
+                self.assertEqual(cmd[cmd.index("-dev") + 1], "ROCm0")
+
+                manager.unload_model()
+
+    @mock.patch("halofpx.engine_manager.urllib.request.urlopen")
+    @mock.patch("halofpx.engine_manager.subprocess.Popen")
+    def test_dspark_vulkan_auto_upgrades_to_rocm0(self, mock_popen, mock_urlopen):
+        """A user forcing --device Vulkan0 with DSpark is moved to ROCm0 automatically."""
+        mock_resp = mock.Mock()
+        mock_resp.status = 200
+        mock_urlopen.return_value.__enter__.return_value = mock_resp
+        mock_proc = mock.Mock()
+        mock_proc.poll.return_value = None
+        mock_popen.return_value = mock_proc
+
+        manager = EngineManager()
+        dev_run = mock.Mock()
+        dev_run.stdout = "Vulkan0\nROCm0\n"
+        dev_run.stderr = ""
+
+        with tempfile.NamedTemporaryFile() as fake_model, \
+             tempfile.NamedTemporaryFile() as fake_bin, \
+             tempfile.NamedTemporaryFile() as fake_draft:
+            with mock.patch.object(manager.registry, "get_model_file_path", return_value=Path(fake_model.name)), \
+                 mock.patch.object(manager.registry, "get_draft_file_path", return_value=Path(fake_draft.name)), \
+                 mock.patch("halofpx.engine_manager.get_engine_binary", return_value=Path(fake_bin.name)), \
+                 mock.patch("halofpx.engine_manager.subprocess.run", return_value=dev_run):
+                res = manager.load_model("deepseek-v4-flash", device="Vulkan0")
+                self.assertEqual(res["status"], "success")
+
+                cmd = mock_popen.call_args[0][0]
+                self.assertEqual(cmd[cmd.index("-dev") + 1], "ROCm0")
+                self.assertIn("--spec-type", cmd)
+                self.assertIn("draft-dspark", cmd)
+
+                manager.unload_model()
+
+    @mock.patch("halofpx.engine_manager.urllib.request.urlopen")
+    @mock.patch("halofpx.engine_manager.subprocess.Popen")
+    def test_dspark_disabled_when_no_hip_backend(self, mock_popen, mock_urlopen):
+        """Vulkan-only host: speculation is disabled instead of crashing the engine."""
+        mock_resp = mock.Mock()
+        mock_resp.status = 200
+        mock_urlopen.return_value.__enter__.return_value = mock_resp
+        mock_proc = mock.Mock()
+        mock_proc.poll.return_value = None
+        mock_popen.return_value = mock_proc
+
+        manager = EngineManager()
+        dev_run = mock.Mock()
+        dev_run.stdout = "Vulkan0\n"
+        dev_run.stderr = ""
+
+        with tempfile.NamedTemporaryFile() as fake_model, \
+             tempfile.NamedTemporaryFile() as fake_bin, \
+             tempfile.NamedTemporaryFile() as fake_draft:
+            with mock.patch.object(manager.registry, "get_model_file_path", return_value=Path(fake_model.name)), \
+                 mock.patch.object(manager.registry, "get_draft_file_path", return_value=Path(fake_draft.name)), \
+                 mock.patch("halofpx.engine_manager.get_engine_binary", return_value=Path(fake_bin.name)), \
+                 mock.patch("halofpx.engine_manager.subprocess.run", return_value=dev_run):
+                res = manager.load_model("deepseek-v4-flash", device="Vulkan0")
+                self.assertEqual(res["status"], "success")
+
+                cmd = mock_popen.call_args[0][0]
+                self.assertNotIn("--spec-type", cmd)
+                self.assertEqual(cmd[cmd.index("-dev") + 1], "Vulkan0")
+
+                manager.unload_model()
+
+    @mock.patch("halofpx.engine_manager.urllib.request.urlopen")
+    @mock.patch("halofpx.engine_manager.subprocess.Popen")
+    def test_dspark_skipped_without_local_drafter(self, mock_popen, mock_urlopen):
+        """No local drafter: bare decode with a warning, engine still starts."""
+        mock_resp = mock.Mock()
+        mock_resp.status = 200
+        mock_urlopen.return_value.__enter__.return_value = mock_resp
+        mock_proc = mock.Mock()
+        mock_proc.poll.return_value = None
+        mock_popen.return_value = mock_proc
+
+        manager = EngineManager()
+        with tempfile.NamedTemporaryFile() as fake_model, \
+             tempfile.NamedTemporaryFile() as fake_bin:
+            with mock.patch.object(manager.registry, "get_model_file_path", return_value=Path(fake_model.name)), \
+                 mock.patch.object(manager.registry, "get_draft_file_path", return_value=None), \
+                 mock.patch("halofpx.engine_manager.get_engine_binary", return_value=Path(fake_bin.name)):
+                res = manager.load_model("deepseek-v4-flash")
+                self.assertEqual(res["status"], "success")
+
+                cmd = mock_popen.call_args[0][0]
+                self.assertNotIn("--spec-type", cmd)
+
+                manager.unload_model()
+
     def test_health_poll_attempts_floor(self):
         self.assertEqual(health_poll_attempts(0), 60)
         self.assertEqual(health_poll_attempts(4.9), 60)

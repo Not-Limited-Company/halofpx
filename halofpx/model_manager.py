@@ -3,11 +3,12 @@ halofpx.model_manager — Hugging Face Download & Cache Manager
 """
 
 import hashlib
+import os
 import re
 import subprocess
 from pathlib import Path
 from typing import Optional, Dict, Any
-from halofpx.config import MODELS_DIR
+from halofpx.config import MODELS_DIR, ROOT_DIR
 from halofpx.registry import ModelRegistry
 
 _SHARD_RE = re.compile(r"^(.*-)(\d+)-of-(\d+)(\.[^.]+)?$")
@@ -17,7 +18,7 @@ class ModelManager:
         self.registry = registry or ModelRegistry()
         self.models_dir = models_dir
 
-    def pull_model(self, model_id: str, variant: Optional[str] = None) -> Dict[str, Any]:
+    def pull_model(self, model_id: str, variant: Optional[str] = None, with_draft: bool = False) -> Dict[str, Any]:
         model = self.registry.get_model(model_id)
         if not model:
             return {"status": "error", "message": f"Model '{model_id}' not found in registry."}
@@ -87,6 +88,32 @@ class ModelManager:
                     "vision_ready": False,
                 }
 
+        draft_path = None
+        draft = model.get("draft")
+        if draft:
+            draft_path = self.registry.get_draft_file_path(model_id)
+            if draft_path and draft_path.exists():
+                draft_checksum_error = self._verify_checksum(draft_path, draft.get("sha256", ""))
+                if draft_checksum_error:
+                    print(f"⚠️  {draft_checksum_error}")
+            elif with_draft:
+                print(f"🧱 Building DSpark drafter ({draft.get('filename')})...")
+                try:
+                    draft_path = self._build_draft(model_id, draft, target_dir)
+                except Exception as e:
+                    return {
+                        "status": "warning",
+                        "message": f"Model downloaded, but drafter build failed: {e}",
+                        "local_path": str(local_target),
+                        "draft_path": None,
+                    }
+                print(f"✅ DSpark drafter ready: {draft_path}")
+            else:
+                print(
+                    "ℹ️  DSpark drafter not present. Re-run with --with-draft "
+                    "(or scripts/build_dspark_drafter.sh) to enable speculative decode."
+                )
+
         return {
             "status": "success",
             "model_id": model_id,
@@ -96,7 +123,40 @@ class ModelManager:
             "size_gib": round(sum(p.stat().st_size for p in downloaded) / (1024**3), 2),
             "mmproj_path": str(mmproj_path) if mmproj_path else None,
             "vision_ready": mmproj_path is not None,
+            "draft_path": str(draft_path) if draft_path else None,
+            "draft_ready": draft_path is not None,
         }
+
+    def _build_draft(self, model_id: str, draft: Dict[str, Any], target_dir: Path) -> Path:
+        """Run the registry's documented build script to produce the DSpark drafter.
+
+        Honors HALOFPX_DRAFT_QTYPE for the drafter quant type (any gguf qtype);
+        the default (bf16) keeps the native BF16 head + MXFP4 experts.
+        """
+        script = Path(draft.get("build_script", "scripts/build_dspark_drafter.sh"))
+        if not script.is_absolute():
+            script = ROOT_DIR / script
+        if not script.exists():
+            raise FileNotFoundError(f"Drafter build script not found: {script}")
+
+        cmd = [str(script), "--outdir", str(target_dir)]
+        qtype = os.environ.get("HALOFPX_DRAFT_QTYPE", "").strip()
+        if qtype:
+            cmd += ["--drafter-qtype", qtype]
+
+        proc = subprocess.run(cmd, capture_output=True, text=True)
+        if proc.returncode != 0:
+            raise RuntimeError(
+                f"drafter build failed ({proc.returncode})\n{proc.stdout}\n{proc.stderr}"
+            )
+        print("\n".join(proc.stdout.splitlines()[-4:]))
+
+        built = target_dir / draft.get("filename")
+        if not built.exists():
+            raise RuntimeError(
+                f"drafter build finished but {built} was not produced\n{proc.stdout}"
+            )
+        return built
 
     @staticmethod
     def _expand_shards(filename: str) -> list:

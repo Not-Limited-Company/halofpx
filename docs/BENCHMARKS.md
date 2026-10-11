@@ -17,7 +17,7 @@ All benchmarks measured directly on **AMD Ryzen AI Max+ 395 (40 CU Radeon 8060S 
 | **`ornith-1.5-35b`** | MoE / 34.8B (3B active) | **`Q4_K_M`** (baseline) | **4.85** | **21.80 GiB** | **71.5 – 71.7 tok/s** | n/a | n/a |
 | **`ornith-35b`** | Dense / 35.0B | **`ROCmFPX_Speed`** | **4.15** | **19.20 GiB** | **11.20 tok/s** | **115.0+ tok/s (16 Slots)** | **N/A (Multi-Slot)** |
 | **`qwen38-flash-next`** | MoE / 125B (6B active + 51B PLE) | **`UD-IQ1_S`** | **1.56** | **67.55 GiB** | **27.3 tok/s** *(bring-up)* | n/a | n/a |
-| **`deepseek-v4-flash`** | MoE / 284B (16B active) | **`IQ2_XXS`** | **2.06** | **86.70 GiB** | **22.50 tok/s** | **32.00 tok/s** | **N/A** |
+| **`deepseek-v4-flash`** | MoE / 284B (16B active) | **`IQ2_XXS`** | **2.06** | **86.70 GiB** | **22.50 tok/s** *(Vulkan, measured)* | **15.77 tok/s** *(DSpark + drafter, ROCm0, measured)* / **32.00 tok/s** *(Route A, projected)* | **39.5%** *(IQ2 + DSpark)* |
 | **`ling3-flash`** | MoE / 124B (5.1B active) | **`Q4_K_M`** | **4.85** | **71.72 GiB** | **45.23 tok/s** | **55.1 tok/s** (n2 / p0.6) | **94.3%** |
 | **`nex-n2.5-mini`** | MoE / 34.7B (3B active) | **`ROCmFP4_STRIX_LEAN`** | **4.29** | **17.32 GiB** | **76.92 tok/s** *(Vulkan)* / **68.62 tok/s** *(ROCm)* | n/a | n/a |
 | **`nex-n2.5-mini`** | MoE / 34.7B (3B active) | **`Q4_K_M`** (baseline) | **4.88** | **19.71 GiB** | **72.76 tok/s** *(Vulkan)* / **60.39 tok/s** *(ROCm)* | n/a | n/a |
@@ -181,5 +181,34 @@ Measured directly on AMD Strix Halo (`gfx1151`, Mesa RADV Wave64 / ROCm 7.2.3) u
   1. *Cooperative Matrix Mapping:* `ROCmFP4` single-scale blocks unpack with single-cycle bit shifts in shader registers, avoiding the multi-pass unpack and 6-bit scale/offset ALU overhead of standard `Q4_K` blocks when driving Mesa RADV Wave64 cooperative matrices.
   2. *UMA Traffic Reduction:* 12.1% fewer bytes (17.32 vs 19.71 GiB) streamed across the 256-bit LPDDR5X bus on each step directly relieves memory contention during MoE expert routing.
   3. *Strix Lean Mixed Precision:* Preserves critical router gate tensors in uncompressed FP32 and token embeddings in Q5_K, delivering higher TPS without expert routing degradation.
+
+---
+
+## 9. DeepSeek V4 Flash — DSpark Speculative Decode (`draft-dspark`)
+
+Measured 2026-10-11 on AMD Strix Halo (gfx1151, ROCm 7.2.4 HIP backend) with the pinned ROCmFPX engine (`75e67a92b`):
+
+- **Drafter:** `DeepSeek-V4-Flash-0731-DSpark-draft-bf16.gguf` (10.9 GiB) — native `dflash` arch converted from the official `deepseek-ai/DeepSeek-V4-Flash-DSpark` checkpoint (only the `mtp.*`-containing shards are downloaded) via `convert_hf_to_gguf.py --dspark`. 3 blocks, `block_size=5`, `markov_rank=256`, `target_layers=[40,41,42]`, mask/noise token `128799`. BF16 head with lossless MXFP4 expert repack. Build anytime with `scripts/build_dspark_drafter.sh --drafter-qtype <any>` (default `bf16`).
+- **Main model:** `DeepSeek-V4-Flash-0731-IQ2XXS-STRIX.gguf` (86.7 GiB).
+- **Engine flags:** `--spec-type draft-dspark -md <drafter> --spec-draft-n-max 5 --spec-draft-p-min 0.0 -dev ROCm0`.
+
+### Measured (IQ2_XXS + DSpark, ROCm0)
+
+| Metric | Value |
+|---|---|
+| Decode (24-token pulse, ctx 4096, temp 0) | **15.77 tok/s** |
+| Draft acceptance | **39.5%** (15 accepted / 38 generated) |
+| Mean draft length | **2.88 tokens/step** |
+| Load | ✅ clean (main + drafter + spec init) |
+
+- **Backend caveat:** the dflash draft decode reuses the target's `output.weight` plus fused dflash HC ops, which exist only on the **HIP** backend in this engine pin. On `Vulkan0` the engine aborts at graph build (`pre-allocated tensor (output.weight) … cannot run the operation (NONE)`). `halofpx` auto-switches Vulkan → ROCm0 when a DSpark draft is configured, and disables speculation (with a warning) if no HIP device exists. Bare (non-spec) decode still works on Vulkan.
+
+### The advertised 32.00 tok/s — provenance
+
+The **32.00 tok/s** figure shipped with the README is **not** reachable with the IQ2_XXS quant alone (that file has no spec tensors; its unassisted decode measures 22.50 tok/s on Vulkan). 32.00 tok/s corresponds to the **Route A** config in the reference `ds4-strix-halo` QA docs — `DeepSeek-V4-Flash-ROCMFP2-STRIX.gguf` (~102 GiB, arch `deepseek4`) + the same DSpark drafter on ROCm0. It is a **reference figure, not yet reproduced on this host** (labeled **Projected** until measured).
+
+- Route A variants ship in the registry: `ROCMFP2_STRIX` (102.0 GiB) and `ROCMFPX_MIX_STRIX` (98.3 GiB), both from `Lucebox/DeepSeek-V4-Flash-0731-ROCmFP3`, provenance recorded per variant.
+- To reproduce: `halofpx pull deepseek-v4-flash --variant ROCMFP2_STRIX --with-draft`, then `halofpx load deepseek-v4-flash --variant ROCMFP2_STRIX` (defaults to ROCm0). RAM plan: ~102 GiB main + ~10.9 GiB drafter + KV — tight on 128 GB; drop `--ctx` or use `--no-mmap` if needed.
+- IQ2_XXS + DSpark does **not** reach 32 tok/s; expect the ~13–20 tok/s band per the reference QA docs until the Route A pull is benched on this host. Do not publish any Route A number from this repo without a measured run (or a `(Projected)` label).
 
 
