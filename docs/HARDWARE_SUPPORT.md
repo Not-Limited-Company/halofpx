@@ -55,6 +55,34 @@ cd halofpx
 - **On Strix Halo (`gfx1151`):** You can also download pre-compiled binaries via `./scripts/build_engine.sh --prebuilt`.
 - **On other AMD GPUs:** Compiles directly against your detected architecture.
 
+### 3.1 Troubleshooting: `duplicate symbol __float2bfloat16(float)` on `--rocm`
+
+A dual (ROCm + Vulkan) build can fail at link time on `libggml-hip.so` with a long list of duplicate bf16 helper symbols:
+
+```
+ld.lld: error: duplicate symbol: __float2bfloat16(float)
+>>> defined at acc.cu
+>>> defined at add-id.cu
+```
+
+This is never an error in the ROCmFPX sources. It means a **distro HIP package is shadowing your ROCm install**. Ubuntu/Debian ship ROCm 5.x headers under `/usr/include/hip` (e.g. from `libamdhip64-dev`), and clang searches `/usr/include` *before* `/opt/rocm/include`. The 5.x header defines `__float2bfloat16` and friends without `static`/`inline`, so every translation unit emits a strong definition and the linker rejects all of them.
+
+Confirm it:
+
+```bash
+# which header does the compiler actually use?
+/opt/rocm/lib/llvm/bin/clang++ -x hip --offload-arch=gfx1151 -fsyntax-only -H \
+  <(echo '#include <hip/hip_bf16.h>') 2>&1 | grep hip_bf16.h
+```
+
+`build_engine.sh --rocm` now guards against this: it resolves the real ROCm root, forces it ahead of `/usr/include` with `-isystem`, probes the resolved header, and refuses to start if the wrong one wins. The clean fix on a machine that still has the distro packages is to remove them:
+
+```bash
+sudo apt purge libamdhip64-dev libhipblas-dev librocblas-dev libhipcub-dev libhsa-runtime-dev
+```
+
+Then delete any build directory produced while the stale headers were active (`engine/src/build-*-dual`) so every `.cu` is recompiled, and rebuild.
+
 ---
 
 ## 4. RAM-Aware Prompt Caching
@@ -69,7 +97,7 @@ HaloFPX automatically allocates an additional prompt cache based on physical sys
 
 For models without embedded MTP, the server enables 4K-token checkpoints, slot-save endpoint storage, continuous batching, and unified KV. On APUs it defaults to `--no-mmap`; discrete GPUs retain `mmap` unless overridden.
 
-With the spec-stateful checkpoint patch (issue #3), Qwen 3.8 embedded MTP and RAM prompt caching now work simultaneously in hybrid mode. Checkpoint restoration preserves both the KV prefix and the MTP boundary state, delivering ~34 tok/s speculative generation alongside cached prefix reuse.
+With the spec-stateful checkpoint handling (upstream commit `0ef57fb81`, "server: tolerate empty data_spec during checkpoint restore"), Qwen 3.8 embedded MTP and RAM prompt caching now work simultaneously in hybrid mode. Checkpoint restoration preserves both the KV prefix and the MTP boundary state, delivering ~34 tok/s speculative generation alongside cached prefix reuse. This is no longer a local patch — the fix ships in the pinned engine commit and the `patches/` directory has been retired.
 
 ```bash
 halofpx load qwen38-27b --optimization-mode auto --reasoning off

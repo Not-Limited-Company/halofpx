@@ -246,7 +246,7 @@ docker run -d -p 8010:8010 \
 
 ## 🤝 Upstream Integration & Engine Core
 
-`HaloFPX` wraps and orchestrates the **[charlie12345/ROCmFPX](https://github.com/charlie12345/ROCmFPX)** engine, compiling directly against pinned builds (`e87d53e (213)`) or downloading pre-compiled Strix Halo binaries via `./scripts/build_engine.sh --prebuilt`.
+`HaloFPX` wraps and orchestrates the **[ROCmFPX/ROCmFPX](https://github.com/ROCmFPX/ROCmFPX)** engine (org repo, migrated 2026-09-02), compiling directly against a pinned commit (`75e67a92b`, q38rocm#11) or downloading pre-compiled Strix Halo binaries via `./scripts/build_engine.sh --prebuilt`.
 
 ---
 
