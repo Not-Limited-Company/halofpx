@@ -210,7 +210,7 @@
     "draft": {
       "filename": "DeepSeek-V4-Flash-0731-DSpark-draft-bf16.gguf",
       "size_gib": 10.9,
-      "sha256": "",
+      "sha256": "0e14980cc30044ff414d89c8aeae03c3443e4215bc007c2f6ab16bcc08c81a69",
       "source": "converted from deepseek-ai/DeepSeek-V4-Flash-DSpark (official DSpark mtp.* head: 3 blocks, block_size=5, markov_rank=256, target_layers=[40,41,42]) via engine convert_hf_to_gguf.py --dspark; bf16 head with lossless MXFP4 expert repack. Build with scripts/build_dspark_drafter.sh",
       "build_script": "scripts/build_dspark_drafter.sh"
     },
