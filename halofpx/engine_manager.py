@@ -225,7 +225,7 @@ class EngineManager:
             "--host", "127.0.0.1"
         ]
 
-        mmproj_file = self.registry.get_mmproj_file_path(model_id)
+        mmproj_file = self.registry.get_mmproj_file_path(model_id, var_name)
         if mmproj_file and mmproj_file.exists():
             cmd.extend(["-mm", str(mmproj_file)])
 

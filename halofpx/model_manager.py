@@ -57,9 +57,9 @@ class ModelManager:
         local_target = downloaded[0]
 
         mmproj_path = None
-        mmproj = model.get("mmproj")
+        mmproj = var_info.get("mmproj") or model.get("mmproj")
         if mmproj:
-            mmproj_repo = mmproj.get("hf_repo", hf_repo)
+            mmproj_repo = mmproj.get("hf_repo", var_info.get("hf_repo", hf_repo))
             mmproj_filename = mmproj.get("filename")
             if not mmproj_repo or not mmproj_filename:
                 return {
@@ -224,7 +224,7 @@ class ModelManager:
                         removed.append(cand.name)
             # Vision projectors are pulled alongside the weights; remove the
             # orphan too, otherwise `halofpx delete` leaves stale mmproj files.
-            mmproj_path = self.registry.get_mmproj_file_path(model_id)
+            mmproj_path = self.registry.get_mmproj_file_path(model_id, var_name)
             if mmproj_path and mmproj_path.is_file():
                 mmproj_path.unlink()
                 removed.append(mmproj_path.name)

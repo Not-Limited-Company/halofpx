@@ -65,3 +65,18 @@ what it was built from (e.g. "upstream Q8_0 --allow-requantize"). Never add
 or publish a quant without it — the Qwen3.8 FAST quant shipped with unknown
 provenance and we could not reproduce or audit it. Requantize only from
 Q8_0/BF16-class sources; never from k-quants (double-quantization).
+
+### Expert-layout check before registering a variant
+The engine loads its own ROCmFPX layouts (100-104, 108-111) and standard GGUF
+types. Two published families do **not** load and must not be registered
+without engine work:
+- Lucebox **MIX** files (expert types 105/106). Block geometry matches
+  `Q2_0_ROCMFPX`/`Q3_0_ROCMFPX`, but the payload is decoded through codebooks
+  kept in the file's KV metadata (`deepseek4.p4mix.sidecar`,
+  `deepseek4.gumix.sidecar`). Also note 105/106 are Turbo3/Turbo4 KV types here.
+- Legacy **affine fp2** (type 107, otheru/Ember: `value = code*ue4m3(e0) -
+  ue4m3(e1)`). 107 is reserved as ambiguous and has no decoder; a transcode to
+  S40 is lossy (see docs/BENCHMARKS.md section 10).
+Verify a candidate before registering it: decode a 2 MiB slice of one expert
+tensor and compare rms and per-row DC against a known-good quant of the same
+base (healthy 2-bit experts land near rms 0.02 and |DC| 0.01).

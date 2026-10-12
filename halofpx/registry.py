@@ -253,6 +253,11 @@ class ModelRegistry:
             for variant_name, vdata in entry.get("variants", {}).items():
                 filename = vdata.get("filename")
                 local_path = self.resolve_local_file(filename, model_id=model_id)
+                v_mmproj = self.get_mmproj_info(model_id, variant_name, _data=entry)
+                v_mmproj_path = (
+                    self.resolve_local_file(v_mmproj.get("filename"), model_id=model_id)
+                    if v_mmproj else None
+                )
                 variants_status[variant_name] = {
                     "filename": filename,
                     "downloaded": local_path is not None,
@@ -260,22 +265,38 @@ class ModelRegistry:
                     "size_gib": vdata.get("size_gib", 0.0),
                     "min_vram_gib": vdata.get("min_vram_gib", 16.0),
                     "bpw": vdata.get("bpw", 0.0),
-                    "sha256": vdata.get("sha256", "")
+                    "sha256": vdata.get("sha256", ""),
+                    "vision_capable": v_mmproj is not None,
+                    "vision_ready": v_mmproj_path is not None,
+                    "mmproj_status": {
+                        "filename": v_mmproj.get("filename"),
+                        "downloaded": v_mmproj_path is not None,
+                        "local_path": str(v_mmproj_path) if v_mmproj_path else None,
+                        "size_gib": v_mmproj.get("size_gib", 0.0),
+                        "sha256": v_mmproj.get("sha256", ""),
+                    } if v_mmproj else None,
                 }
             entry["variants_status"] = variants_status
             entry["is_ready"] = any(v["downloaded"] for v in variants_status.values())
 
+            # Model-level vision: explicit model-level mmproj (e.g. Ornith) or any
+            # variant-level projector.
             mmproj = entry.get("mmproj")
-            mmproj_path = self.resolve_local_file(mmproj.get("filename"), model_id=model_id) if mmproj else None
-            entry["vision_capable"] = mmproj is not None
+            variant_mmproj = self.get_mmproj_info(model_id, _data=entry)
+            effective_mmproj = mmproj or variant_mmproj
+            mmproj_path = (
+                self.resolve_local_file(effective_mmproj.get("filename"), model_id=model_id)
+                if effective_mmproj else None
+            )
+            entry["vision_capable"] = effective_mmproj is not None
             entry["vision_ready"] = mmproj_path is not None
             entry["mmproj_status"] = {
-                "filename": mmproj.get("filename"),
+                "filename": effective_mmproj.get("filename"),
                 "downloaded": mmproj_path is not None,
                 "local_path": str(mmproj_path) if mmproj_path else None,
-                "size_gib": mmproj.get("size_gib", 0.0),
-                "sha256": mmproj.get("sha256", ""),
-            } if mmproj else None
+                "size_gib": effective_mmproj.get("size_gib", 0.0),
+                "sha256": effective_mmproj.get("sha256", ""),
+            } if effective_mmproj else None
             result.append(entry)
         return result
 
@@ -412,14 +433,47 @@ class ModelRegistry:
 
         return None
 
-    def get_mmproj_file_path(self, model_id: str) -> Optional[Path]:
-        model = self.get_model(model_id)
+    def get_mmproj_info(
+        self,
+        model_id: str,
+        variant: Optional[str] = None,
+        _data: Optional[Dict[str, Any]] = None,
+    ) -> Optional[Dict[str, Any]]:
+        """Return the vision projector descriptor for a model/variant, if any.
+
+        Variant-level `mmproj` takes precedence so that a single model can mix
+        text-only and multimodal variants (e.g. deepseek-v4-flash). Model-level
+        `mmproj` remains supported for wholly multimodal models (e.g. Ornith).
+        """
+        model = _data if _data is not None else self.get_model(model_id)
         if not model:
             return None
-        mmproj_name = model.get("mmproj", {}).get("filename")
-        if mmproj_name:
-            return self.resolve_local_file(mmproj_name, model_id=model_id)
+        if variant:
+            # Strict per-variant lookup: a variant without its own projector must
+            # not inherit another variant's tower. Model-level `mmproj` still
+            # applies (wholly multimodal models such as Ornith).
+            v_mmproj = model.get("variants", {}).get(variant, {}).get("mmproj")
+            if v_mmproj and v_mmproj.get("filename"):
+                return v_mmproj
+            mmproj = model.get("mmproj")
+            if mmproj and mmproj.get("filename"):
+                return mmproj
+            return None
+        mmproj = model.get("mmproj")
+        if mmproj and mmproj.get("filename"):
+            return mmproj
+        # Aggregate view: fall back to the first variant that ships a projector.
+        for vdata in model.get("variants", {}).values():
+            v_mmproj = vdata.get("mmproj")
+            if v_mmproj and v_mmproj.get("filename"):
+                return v_mmproj
         return None
+
+    def get_mmproj_file_path(self, model_id: str, variant: Optional[str] = None) -> Optional[Path]:
+        mmproj = self.get_mmproj_info(model_id, variant)
+        if not mmproj:
+            return None
+        return self.resolve_local_file(mmproj.get("filename"), model_id=model_id)
 
     def get_draft_info(self, model_id: str) -> Optional[Dict[str, Any]]:
         """Return the top-level `draft` asset (DSpark drafter) for a model, if any."""

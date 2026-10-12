@@ -19,14 +19,23 @@ class ModelRegistryTests(unittest.TestCase):
     def test_deepseek_v4_flash_dspark_config(self):
         model = self.registry.get_model("deepseek-v4-flash")
         self.assertIsNotNone(model)
-        # DSpark drafter asset + Route A variants shipped with provenance
+        # DSpark drafter asset + the servable variants, each with provenance
         self.assertIn("draft", model)
         self.assertEqual(model["draft"]["filename"], "DeepSeek-V4-Flash-0731-DSpark-draft-bf16.gguf")
         self.assertIn("source", model["draft"])
+        self.assertEqual(model["default_variant"], "IQ2_XXS")
         self.assertIn("ROCMFP2_STRIX", model["variants"])
-        self.assertIn("ROCMFPX_MIX_STRIX", model["variants"])
-        for name in ("IQ2_XXS", "ROCMFP2_STRIX", "ROCMFPX_MIX_STRIX"):
+        for name in ("IQ2_XXS", "ROCMFP2_STRIX"):
             self.assertIn("source", model["variants"][name])
+        # IQ2_XXS is the fidelity-neutral lane: standard GGUF quant types, pinned sha
+        self.assertEqual(
+            model["variants"]["IQ2_XXS"]["sha256"],
+            "73b86c93e7b0be37f68c4b3a5361c7e17f9b278647aa335ea304ac5dfd784867",
+        )
+        # Lucebox MIX (expert types 105/106 + in-file codebook sidecars) and the
+        # affine vision build are not loadable by this engine, so they are not offered
+        self.assertNotIn("ROCMFPX_MIX_STRIX", model["variants"])
+        self.assertNotIn("VISION_EXP_STRIX_LEAN", model["variants"])
         # run_config drives draft-dspark (block_size 5) on the HIP backend
         self.assertEqual(model["run_config"]["spec_type"], "draft-dspark")
         self.assertEqual(model["run_config"]["draft_n"], 5)
@@ -82,6 +91,49 @@ class ModelRegistryTests(unittest.TestCase):
                 status = registry.list_models()[0]
                 self.assertTrue(status["vision_ready"])
                 self.assertTrue(status["mmproj_status"]["downloaded"])
+
+    def test_variant_level_mmproj_is_strict_per_variant(self):
+        """A projector on one variant must not leak to text-only siblings."""
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            models_path = root / "models.json"
+            presets_path = root / "presets.json"
+            models_path.write_text(json.dumps({
+                "mixed-model": {
+                    "default_variant": "TEXT",
+                    "variants": {
+                        "TEXT": {"filename": "text.gguf"},
+                        "VISION": {
+                            "filename": "vision.gguf",
+                            "mmproj": {"filename": "mmproj.gguf", "size_gib": 0.5},
+                        },
+                    },
+                }
+            }))
+            presets_path.write_text("{}")
+            (root / "text.gguf").touch()
+            (root / "vision.gguf").touch()
+
+            with patch("halofpx.registry.HF_CACHE_DIRS", [root]):
+                registry = ModelRegistry(models_path, presets_path)
+
+                # Aggregated model view advertises vision; strict paths do not leak.
+                status = registry.list_models()[0]
+                self.assertTrue(status["vision_capable"])
+                self.assertTrue(status["variants_status"]["VISION"]["vision_capable"])
+                self.assertFalse(status["variants_status"]["TEXT"]["vision_capable"])
+                self.assertIsNone(registry.get_mmproj_file_path("mixed-model", "TEXT"))
+                self.assertIsNone(registry.get_mmproj_file_path("mixed-model", "VISION"))
+
+                (root / "mmproj.gguf").touch()
+                status = registry.list_models()[0]
+                self.assertTrue(status["variants_status"]["VISION"]["vision_ready"])
+                self.assertFalse(status["variants_status"]["TEXT"]["vision_ready"])
+                self.assertEqual(
+                    registry.get_mmproj_file_path("mixed-model", "VISION").name,
+                    "mmproj.gguf",
+                )
+                self.assertIsNone(registry.get_mmproj_file_path("mixed-model", "TEXT"))
 
     def test_no_exist_marker_is_not_a_download(self):
         with tempfile.TemporaryDirectory() as tmp:

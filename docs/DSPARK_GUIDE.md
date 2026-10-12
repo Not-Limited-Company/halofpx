@@ -87,20 +87,26 @@ The **32.00 tok/s** figure is a reference from the `ds4-strix-halo` QA docs (Rou
 DSpark). Reach it by pulling the Route A variant (see below); **no Route A number may be published
 from this repo without a measured run or a `(Projected)` label** (repo rule).
 
-## Route A (the ~98–102 GiB ROCmFPX quants)
+## Route A (the ~95 GiB ROCmFPX quant)
 
 Route A uses the **`deepseek4`**-arch main model (fully supported by the engine) + the same DSpark
 drafter:
 
 ```bash
-halofpx pull deepseek-v4-flash --variant ROCMFP2_STRIX --with-draft    # 102.0 GiB
-halofpx pull deepseek-v4-flash --variant ROCMFPX_MIX_STRIX --with-draft  # 98.3 GiB
+halofpx pull deepseek-v4-flash --variant ROCMFP2_STRIX --with-draft    # 95.3 GiB
 halofpx load deepseek-v4-flash --variant ROCMFP2_STRIX
 ```
 
-RAM planning on 128 GB: ~102 GiB main + ~10.9 GiB drafter + KV cache. If it won't fit, reduce
-`--ctx` (KV is the growth knob) or use `--no-mmap`. IQ2_XXS + DSpark stays in the ~13–20 tok/s
-band — it does **not** reach the 32 tok/s the Route A files are built for.
+`ROCMFP2_STRIX` is legacy affine fp2 (type 107) and fp3 (type 104) as published, so the engine
+cannot load it until it is transcoded in place to canonical S40 (type 111) with
+`scripts/transcode_legacy_rocmfp2.py` - that step is lossy. The sibling
+`ROCMFPX_MIX_STRIX` file is not usable at all (expert types 105/106 with in-file codebook
+sidecars); see `docs/BENCHMARKS.md` section 10.
+
+RAM planning on 128 GB: ~95 GiB main + ~10.9 GiB drafter + KV cache. If it won't fit, reduce
+`--ctx` (KV is the growth knob) or use `--no-mmap`. Measured Route A numbers are in
+`docs/BENCHMARKS.md` section 9; the 32 tok/s figure there is a reference value, not a
+reproduced measurement on this host.
 
 ## Provenance
 

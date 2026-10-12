@@ -217,29 +217,21 @@
     "variants": {
       "IQ2_XXS": {
         "filename": "DeepSeek-V4-Flash-0731-IQ2XXS-STRIX.gguf",
+        "hf_repo": "julianmb/DeepSeek-V4-Flash-0731-IQ2XXS-STRIX",
         "bpw": 2.06,
-        "size_gib": 86.7,
+        "size_gib": 80.77,
         "min_vram_gib": 90.0,
-        "sha256": "",
-        "source": "IQ2_XXS-w2Q2K-AProjQ8-SExpQ8-OutQ8 STRIX block quant of DeepSeek-V4-Flash-0731 (284B MoE) from julianmb/DeepSeek-V4-Flash-0731-IQ2XXS-STRIX"
+        "sha256": "73b86c93e7b0be37f68c4b3a5361c7e17f9b278647aa335ea304ac5dfd784867",
+        "source": "IQ2_XXS-w2Q2K-AProjQ8-SExpQ8-OutQ8 STRIX block quant of DeepSeek-V4-Flash-0731 (284B MoE) from julianmb/DeepSeek-V4-Flash-0731-IQ2XXS-STRIX; standard GGUF quant types (IQ2_XXS/Q2_K/Q8_0), loads on the ROCmFPX engine with no retag and no transcode"
       },
       "ROCMFP2_STRIX": {
         "filename": "DeepSeek-V4-Flash-ROCMFP2-STRIX.gguf",
         "hf_repo": "Lucebox/DeepSeek-V4-Flash-0731-ROCmFP3",
         "bpw": 2.88,
-        "size_gib": 102.0,
+        "size_gib": 95.29,
         "min_vram_gib": 112.0,
-        "sha256": "",
-        "source": "upstream Lucebox/DeepSeek-V4-Flash-0731-ROCmFP3 ROCmFP2 STRIX block quant of DeepSeek-V4-Flash-0731 (Route A)"
-      },
-      "ROCMFPX_MIX_STRIX": {
-        "filename": "DeepSeek-V4-Flash-0731-ROCMFPX-MIX-STRIX.gguf",
-        "hf_repo": "Lucebox/DeepSeek-V4-Flash-0731-ROCmFP3",
-        "bpw": 2.88,
-        "size_gib": 98.3,
-        "min_vram_gib": 108.0,
-        "sha256": "",
-        "source": "upstream Lucebox/DeepSeek-V4-Flash-0731-ROCmFP3 ROCmFPX-MIX STRIX block quant of DeepSeek-V4-Flash-0731 (Route A)"
+        "sha256": "8fa6c30d9badd8e72f83c62952fe24b2e8cd647e103aff086bece328cb9c9208",
+        "source": "upstream Lucebox/DeepSeek-V4-Flash-0731-ROCmFP3 ROCMFP2 STRIX block quant of DeepSeek-V4-Flash-0731 (Route A); expert tensors are legacy affine fp2 (type 107) plus fp3 (type 104), which the ROCmFPX engine does not load as published, so a local copy must first be transcoded in place to canonical S40 (type 111) with scripts/transcode_legacy_rocmfp2.py; that transcode is lossy (measured in docs/BENCHMARKS.md). The sha256 recorded here is the upstream artifact, used for pull verification; a transcoded local copy hashes differently"
       }
     },
     "run_config": {

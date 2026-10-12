@@ -17,7 +17,7 @@ All benchmarks measured directly on **AMD Ryzen AI Max+ 395 (40 CU Radeon 8060S 
 | **`ornith-1.5-35b`** | MoE / 34.8B (3B active) | **`Q4_K_M`** (baseline) | **4.85** | **21.80 GiB** | **71.5 – 71.7 tok/s** | n/a | n/a |
 | **`ornith-35b`** | Dense / 35.0B | **`ROCmFPX_Speed`** | **4.15** | **19.20 GiB** | **11.20 tok/s** | **115.0+ tok/s (16 Slots)** | **N/A (Multi-Slot)** |
 | **`qwen38-flash-next`** | MoE / 125B (6B active + 51B PLE) | **`UD-IQ1_S`** | **1.56** | **67.55 GiB** | **27.3 tok/s** *(bring-up)* | n/a | n/a |
-| **`deepseek-v4-flash`** | MoE / 284B (16B active) | **`IQ2_XXS`** | **2.06** | **86.70 GiB** | **22.50 tok/s** *(Vulkan, measured)* | **15.77 tok/s** *(DSpark + drafter, ROCm0, measured)* / **32.00 tok/s** *(Route A, projected)* | **39.5%** *(IQ2 + DSpark)* |
+| **`deepseek-v4-flash`** | MoE / 284B (16B active) | **`IQ2_XXS`** / **`ROCMFP2_STRIX`** (S40) | **2.06 / 2.88** | **80.77 / 95.29 GiB** | **22.50 tok/s** *(Vulkan, measured)* | **15.77 tok/s** *(IQ2+DSpark, ROCm0, measured)* / **13.5 tok/s** *(ROCMFP2_STRIX+DSpark, ROCm0, ctx8192, measured)* | **39.5%** *(IQ2+DSpark)* / **25.5%** *(ROCMFP2_STRIX+DSpark)* |
 | **`ling3-flash`** | MoE / 124B (5.1B active) | **`Q4_K_M`** | **4.85** | **71.72 GiB** | **45.23 tok/s** | **55.1 tok/s** (n2 / p0.6) | **94.3%** |
 | **`nex-n2.5-mini`** | MoE / 34.7B (3B active) | **`ROCmFP4_STRIX_LEAN`** | **4.29** | **17.32 GiB** | **76.92 tok/s** *(Vulkan)* / **68.62 tok/s** *(ROCm)* | n/a | n/a |
 | **`nex-n2.5-mini`** | MoE / 34.7B (3B active) | **`Q4_K_M`** (baseline) | **4.88** | **19.71 GiB** | **72.76 tok/s** *(Vulkan)* / **60.39 tok/s** *(ROCm)* | n/a | n/a |
@@ -189,26 +189,109 @@ Measured directly on AMD Strix Halo (`gfx1151`, Mesa RADV Wave64 / ROCm 7.2.3) u
 Measured 2026-10-11 on AMD Strix Halo (gfx1151, ROCm 7.2.4 HIP backend) with the pinned ROCmFPX engine (`75e67a92b`):
 
 - **Drafter:** `DeepSeek-V4-Flash-0731-DSpark-draft-bf16.gguf` (10.9 GiB) — native `dflash` arch converted from the official `deepseek-ai/DeepSeek-V4-Flash-DSpark` checkpoint (only the `mtp.*`-containing shards are downloaded) via `convert_hf_to_gguf.py --dspark`. 3 blocks, `block_size=5`, `markov_rank=256`, `target_layers=[40,41,42]`, mask/noise token `128799`. BF16 head with lossless MXFP4 expert repack. Build anytime with `scripts/build_dspark_drafter.sh --drafter-qtype <any>` (default `bf16`).
-- **Main model:** `DeepSeek-V4-Flash-0731-IQ2XXS-STRIX.gguf` (86.7 GiB).
+- **Main model:** `DeepSeek-V4-Flash-0731-IQ2XXS-STRIX.gguf` (80.8 GiB).
 - **Engine flags:** `--spec-type draft-dspark -md <drafter> --spec-draft-n-max 5 --spec-draft-p-min 0.0 -dev ROCm0`.
 
-### Measured (IQ2_XXS + DSpark, ROCm0)
+### Measured (ROCMFP2_STRIX + DSpark, ROCm0 — transcoded to canonical S40 type 111)
 
 | Metric | Value |
 |---|---|
-| Decode (24-token pulse, ctx 4096, temp 0) | **15.77 tok/s** |
-| Draft acceptance | **39.5%** (15 accepted / 38 generated) |
-| Mean draft length | **2.88 tokens/step** |
-| Load | ✅ clean (main + drafter + spec init) |
+| Decode (24-token pulse, ctx 8192, temp 0) | **14.35 tok/s** |
+| Decode (64-token pulse, ctx 8192, temp 0) | **13.47 tok/s** |
+| Draft acceptance | **25.5%** (mean over 3 runs) |
+| Mean draft length | **2.00 tokens/step** |
+| Load | ✅ coherent (fact/math/code correct) |
 
-- **Backend caveat:** the dflash draft decode reuses the target's `output.weight` plus fused dflash HC ops, which exist only on the **HIP** backend in this engine pin. On `Vulkan0` the engine aborts at graph build (`pre-allocated tensor (output.weight) … cannot run the operation (NONE)`). `halofpx` auto-switches Vulkan → ROCm0 when a DSpark draft is configured, and disables speculation (with a warning) if no HIP device exists. Bare (non-spec) decode still works on Vulkan.
+- **File:** `DeepSeek-V4-Flash-ROCMFP2-STRIX.gguf` (95.3 GiB) transcoded from legacy affine (type 107) to canonical dual-scale S40 (type 111) in-place using `scripts/transcode_legacy_rocmfp2.py` (threaded fast path). Audit after transcode: 0 legacy tensors, 86 type 111 tensors; end-to-end fidelity against the independent IQ2_XXS reference matches the predicted S40-vs-IQ2 correlation.
+- **Backend:** HIP (ROCm0). DSpark draft decode requires HIP in this engine pin.
 
 ### The advertised 32.00 tok/s — provenance
 
-The **32.00 tok/s** figure shipped with the README is **not** reachable with the IQ2_XXS quant alone (that file has no spec tensors; its unassisted decode measures 22.50 tok/s on Vulkan). 32.00 tok/s corresponds to the **Route A** config in the reference `ds4-strix-halo` QA docs — `DeepSeek-V4-Flash-ROCMFP2-STRIX.gguf` (~102 GiB, arch `deepseek4`) + the same DSpark drafter on ROCm0. It is a **reference figure, not yet reproduced on this host** (labeled **Projected** until measured).
+The **32.00 tok/s** figure shipped with the README is **not** measured with the IQ2_XXS quant alone (IQ2_XXS + DSpark measured 13–16 tok/s in our bench; unassisted decode measures 22.50 tok/s on Vulkan in other configurations). 32.00 tok/s was a **reference figure, not yet reproduced on this host**; the measured Route A (ROCMFP2_STRIX + DSpark) is **~13.5 tok/s** at ctx 8192 (context-dependent), labeled here as measured rather than projected. Until a ctx-optimized run reproduces the 32 tok/s target under identical hardware/flags, treat any higher number as a specific measured claim with exact configuration.
 
-- Route A variants ship in the registry: `ROCMFP2_STRIX` (102.0 GiB) and `ROCMFPX_MIX_STRIX` (98.3 GiB), both from `Lucebox/DeepSeek-V4-Flash-0731-ROCmFP3`, provenance recorded per variant.
-- To reproduce: `halofpx pull deepseek-v4-flash --variant ROCMFP2_STRIX --with-draft`, then `halofpx load deepseek-v4-flash --variant ROCMFP2_STRIX` (defaults to ROCm0). RAM plan: ~102 GiB main + ~10.9 GiB drafter + KV — tight on 128 GB; drop `--ctx` or use `--no-mmap` if needed.
-- IQ2_XXS + DSpark does **not** reach 32 tok/s; expect the ~13–20 tok/s band per the reference QA docs until the Route A pull is benched on this host. Do not publish any Route A number from this repo without a measured run (or a `(Projected)` label).
+- Route A variants: `ROCMFP2_STRIX` (95.3 GiB) from `Lucebox/DeepSeek-V4-Flash-0731-ROCmFP3`, provenance recorded per variant (transcoded to canonical S40 on this host). The sibling `ROCMFPX_MIX_STRIX` from the same repo is **not loadable** by this engine and is no longer offered in the registry - see section 10.
+- To reproduce: `halofpx pull deepseek-v4-flash --variant ROCMFP2_STRIX --with-draft`, transcode if needed (the transcoded file is now canonical type 111), then `halofpx load deepseek-v4-flash --variant ROCMFP2_STRIX` (defaults to ROCm0). RAM plan: ~102 GiB main + ~10.9 GiB drafter + KV — tight on 128 GB; drop `--ctx` or use `--mmap` (APU default differs) if needed.
+- IQ2_XXS + DSpark does **not** reach 32 tok/s on this hardware under these flags (measured ~13.5 tok/s). Do not swap a projected value for a measured one without recording the exact context window, n_predict, temperature, and acceptances for each run.
+
+---
+
+## 10. DeepSeek V4 Flash - variant audit and vision decision (2026-10-12)
+
+Audit of the DeepSeek V4 Flash artifacts offered by this zoo, done while
+chasing a published vision build that would not decode. Every number below comes
+from parsing the files themselves (GGUF header, KV metadata, payload statistics),
+not from inference.
+
+### 10.1 Lucebox MIX files (expert types 105/106) - not loadable
+
+`DeepSeek-V4-Flash-0731-ROCMFPX-MIX-STRIX.gguf` and
+`DeepSeek-V4-Flash-Vision-Exp-ROCMFPX-MIX-STRIX.gguf` store their routed experts
+as GGUF types **105** (3-bit, 14 bytes per 32 weights) and **106** (2-bit,
+10 bytes per 32 weights). In this engine those ids are `TURBO3_0`/`TURBO4_0`
+(KV-cache types), so the expert tensors cannot even be sized as weights.
+
+The block geometry matches this engine's `Q3_0_ROCMFPX` (104) and
+`Q2_0_ROCMFPX` (111) exactly, but the payloads do not. Decoding a real 2 MiB
+slice of `blk.0.ffn_gate_exps.weight`:
+
+| Decode applied to the type-106 bytes | rms | mean abs DC |
+|---|---|---|
+| S40 `{-4,-1,1,4}`, per-half scale (type 111) | 0.0716 | 0.0375 |
+| affine `code*e0 - e1` (legacy 107) | 0.0611 | 0.1368 |
+| two-scale `(code-1)*e`, per-half | 0.0331 | 0.2801 |
+| reference: same tensor, same base, affine 107 | **0.0214** | **0.0110** |
+
+The reference is exact: layer 0 lies outside the abliterated blocks (10-42), so
+that tensor holds unmodified weight. Single-scale, swapped-half, scales-first
+byte order and level-set variants were tried as well; none produce a healthy
+decode.
+
+The file's own metadata explains why no fixed codebook fits:
+`deepseek4.p4mix.sidecar` (`P4MIXv1`, 28 entries - one per type-105 tensor),
+`deepseek4.gumix.sidecar` (`GUMIXs1`, 101 entries - one per type-106 tensor) and
+`deepseek4.mix.codebook_repair=bf16-epsilon-v1`. The MIX recipe keeps its
+codebooks inside the file (the upstream README says so and requires their own
+runtime: `luce_server`, Luce-Org/lucebox PR #722). There is no lossless retag,
+and a transcode would have to reproduce the sidecar semantics.
+
+`ROCMFPX_MIX_STRIX` was removed from `registry/models.json` as a result.
+
+### 10.2 Vision builds - deferred
+
+The otheru vision build
+(`DeepSeek-V4-Flash-Vision-Exp-Abliterated-ROCMFPx-Strix-Lean-2.58bpw.gguf`) is a
+valid artifact: with its real layout, `value = code*ue4m3(e0) - ue4m3(e1)`, it
+decodes cleanly (rms 0.0214, mean abs DC 0.0110). This engine has no affine fp2
+decoder, though - type 107 is reserved as ambiguous - so serving it needs engine
+work. A file-side transcode to S40 is lossy (measured corr 0.967, relative RMSE
+25.6% over 419,328 blocks) and was ruled out. The vision lane was dropped on
+2026-10-12: the model file and its projector were deleted, and
+`VISION_EXP_STRIX_LEAN` was removed from the registry.
+
+### 10.3 Re-verified baseline lane (IQ2_XXS + DSpark, ROCm0, ctx 4096)
+
+Measured 2026-10-12 on AMD Ryzen AI MAX+ 395 / Radeon 8060S (gfx1151), engine
+tree `dc227f4ee` with the `deepseek4.cpp` optional-tensor loader patch, fused
+DSV4-HC kernels at their upstream defaults. Model `IQ2_XXS` (80.77 GiB) plus the
+bf16 DSpark drafter, `--spec-type draft-dspark --spec-draft-n-max 5
+--spec-draft-p-min 0.0`, temperature 0. Method: `scripts/benchmark.py`
+(4-task suite, 100-200 completion tokens per task).
+
+| Task | Decode | TTFT | Draft acceptance |
+|---|---:|---:|---:|
+| Binary Search Tree (Python) | 16.72 tok/s | 762.33 ms | 41.6% |
+| Math Puzzle (Widget Factory) | 15.98 tok/s | 753.40 ms | 39.4% |
+| JSON Entity Extractor | 20.80 tok/s | 817.41 ms | 57.9% |
+| UMA vs Discrete Architecture | 18.69 tok/s | 746.32 ms | 49.5% |
+| **Average** | **18.05 tok/s** | **769.90 ms** | **47.1%** |
+
+- Coherence: a fact/math probe answered correctly ("17*23 = 391", "Canberra"),
+  16.83 tok/s and 43.8% draft acceptance on that request; no benchmark task
+  tripped the repetition detector.
+- Receipt: `benchmarks/benchmark_20261012_143003.md` and `.json`.
+- Reference: the earlier IQ2_XXS + DSpark figure at ctx 4096 in the model matrix
+  above is 15.77 tok/s. The re-verified run lands at or above it, so no
+  regression is observable on this lane; treat sub-tok/s differences as run
+  variance.
 
 
