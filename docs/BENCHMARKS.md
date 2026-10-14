@@ -462,6 +462,12 @@ retrieval:
   which looks like a bounded effective span rather than random loss - stated with
   the caveat of 3 samples per cell. Raising the output cap recovers some of these
   but not the content failures.
+- Mechanism, observed in the raw outputs: the engine forces the thinking close when
+  the reasoning budget runs out, and at depth that forced close is sometimes followed
+  by degenerate looping (`...passphrase is X.</think>...response...passphrase is X...`)
+  until the output cap. So a tight reasoning budget can *cause* the no-answer misses;
+  a larger output budget recovers some, but the content failures (denials, partial
+  recall) remain.
 - Receipts: `benchmarks/longctx_kv_q8_0_repeats.json` (with `longctx_kv_q8_0_rb512.*`
   and `longctx_kv_q4_0.*` for the per-KV comparison).
 
