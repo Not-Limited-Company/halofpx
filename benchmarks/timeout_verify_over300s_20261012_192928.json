@@ -1,0 +1,15 @@
+{
+ "tag": "over300s",
+ "timestamp": "20261012_192928",
+ "steps": [
+  {
+   "test": "A_router_request_over_300s",
+   "status_code": 200,
+   "elapsed_s": 502.3,
+   "exceeded_old_cap": true,
+   "prompt_tokens": 64002,
+   "prefill_s": 493.9
+  }
+ ],
+ "notes": "router=8010, engine=8800, IQ2_XXS, ctx 262144, KV q8_0"
+}

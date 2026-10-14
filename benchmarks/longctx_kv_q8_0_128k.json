@@ -1,0 +1,26 @@
+{
+ "tag": "kv_q8_0_128k",
+ "notes": "IQ2_XXS + DSpark, ROCm0, ctx 262144, KV q8_0; varied filler; needle at 25/50/75% depth; engine port 8800; max_tokens 192 (single 128K probe)",
+ "timestamp": "20261013_105119",
+ "base_url": "http://127.0.0.1:8800",
+ "max_tokens": 192,
+ "rows": [
+  {
+   "depth": 131072,
+   "position": 0.5,
+   "repeat": 0,
+   "wall_s": 3339.2,
+   "ok": true,
+   "prompt_tokens": 185621,
+   "prefill_s": 3317.3,
+   "prefill_tps": 56.0,
+   "decode_tps": 8.87,
+   "generated_tokens": 192,
+   "draft_acc": 137,
+   "draft_n": 270,
+   "found": false,
+   "found_in_answer": false,
+   "answer": ""
+  }
+ ]
+}

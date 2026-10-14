@@ -294,4 +294,177 @@ bf16 DSpark drafter, `--spec-type draft-dspark --spec-draft-n-max 5
   regression is observable on this lane; treat sub-tok/s differences as run
   variance.
 
+---
 
+## 11. DeepSeek V4 Flash - context window, KV precision and accuracy (2026-10-12/13)
+
+Measured on AMD Ryzen AI MAX+ 395 / Radeon 8060S (gfx1151, ROCm 7.2.4), IQ2_XXS
+(80.77 GiB) plus the bf16 DSpark drafter, backend ROCm0, `-fa on`, 16 threads.
+Question set: ds4-eval's 92 hard questions (25 GPQA-Diamond, 25 audited
+SuperGPQA, 25 AIME 2025, 17 COMPSEC), graded by ds4fa's own
+`ds4-eval --regrade-trace`, i.e. the same grader behind the published
+"82/92" and "COMPSEC-17" figures for this model family. Receipts: every table
+below cites files under `benchmarks/`.
+
+### 11.1 Memory and decode vs context window (KV q8_0, the default)
+
+| ctx | RAM used | RAM free | GTT used | decode | TTFT |
+|---:|---:|---:|---:|---:|---:|
+| 4096 | 99.73 GiB | 25.35 GiB | 92.40 GiB | 18.78 tok/s | 530 ms |
+| 65536 | 99.97 | 25.12 | 92.61 | 19.28 | 541 ms |
+| 131072 | 100.39 | 24.69 | 92.98 | 19.30 | 537 ms |
+| 163840 | 100.60 | 24.49 | 93.15 | 19.17 | 542 ms |
+| 196608 | 100.77 | 24.32 | 93.26 | 19.67 | 538 ms |
+| 262144 | 101.09 | 23.99 | 93.50 | 19.26 | 546 ms |
+| 524288 | 102.64 | 22.45 | 94.77 | 19.63 | 575 ms |
+| 1048576 | 105.96 | 19.12 | 97.43 | 17.17 | 989 ms |
+
+The model declares `context_length = 1048576` (native 65536, YaRN x16). The whole
+window fits with **19 GiB still free**: KV costs about **6.3 KiB/token** (6.33 GiB
+from 4K to 1M), because attention uses a single KV head with per-layer
+`compress_ratios`. Decode holds ~19 tok/s to 512K and dips slightly at 1M.
+Receipt: `benchmarks/ctx_sweep_kv_q8_0_first_pass.json`.
+
+### 11.2 What depth actually costs: prefill, not memory (KV q8_0, cold cache)
+
+| prompt tokens | prefill | prefill rate | decode |
+|---:|---:|---:|---:|
+| 3,636 | 18.7 s | 194 tok/s | 16.50 tok/s |
+| 7,322 | 38.9 s | 188 | 13.80 |
+| 14,597 | 82.5 s | 177 | 14.20 |
+| 29,244 | 194.0 s | 151 | 14.18 |
+| 58,441 | 513.7 s | 114 | 9.11 |
+| 116,932 | 1539.8 s | 76 | 10.44 |
+
+Prefill throughput falls by more than half across the range, so a 128K-token
+prompt costs ~26 minutes before the first token, and a 1M-token prompt is
+impractical on time even though it now fits in memory. Receipt:
+`benchmarks/depth_probe_first_pass.json`.
+
+**Prefix reuse is nearly free.** Sending the same long prefix again served it from
+the prompt cache: prefill dropped from 139 s to **0.2 s** for an identical
+23,179-token prefix (measured in `benchmarks/longctx_kv_q8_0_v2.json`). This is the
+checkpoint/prompt-cache machinery working as intended, and it is why repeat
+sessions are cheap while first reads of long context are not.
+
+### 11.3 Accuracy: the 92-question suite, q8_0 vs q4_0 KV
+
+| Suite | q8_0 | q4_0 |
+|---|---:|---:|
+| COMPSEC (17) | **17/17** | **17/17** |
+| GPQA Diamond (25) | 22/25 | 21/25 |
+| SuperGPQA (25) | 21/25 | 22/25 |
+| AIME 2025 (25) | 21/25 | 19/25 |
+| **Total (92)** | **81/92 (88.0%)** | **79/92 (85.9%)** |
+
+Runtime flags: ctx 262144, greedy, engine reasoning budget 4096, max output 8192,
+DSpark speculation on. Means per case: 2394 generated tokens at 14.73 tok/s
+(q8_0), 2349 at 14.67 tok/s (q4_0).
+
+Reading:
+- The 2-case gap is inside noise, and q4_0 hit the output cap 7 times against
+  q8_0's 3; COMPSEC is identical at 17/17 for both.
+- 3 of the q8_0 failures are truncated at the 8192 cap (two AIME answers were cut
+  mid-number), so 81/92 is a floor for that configuration, not a ceiling.
+- For scale: the published figure for a larger 2.766 bpw 0731 ROCMFPX-MIX build
+  is 82/92 on the same suite. Different artifact, different engine and a larger
+  reasoning allowance, so treat the comparison as orientation only.
+
+Receipts: `benchmarks/ds4_eval_kv_q8_0_20261012_152703.*` and
+`benchmarks/ds4_eval_kv_q4_0_20261013_135126.*` (traces included, so any verdict
+can be re-graded).
+
+### 11.4 Long-context retrieval, q8_0 vs q4_0 KV
+
+Needle planted at 25/50/75% depth in varied filler (a repeated paragraph makes
+retrieval unfairly hard), asked for by name; reasoning budget bounded to 512
+tokens and output capped at 1024 so that "no answer emitted" cannot be mistaken
+for "not retrieved".
+
+| prompt tokens | needle at | q8_0 | q4_0 |
+|---:|---:|:--:|:--:|
+| 23,179 | 25% | hit | hit |
+| 23,179 | 50% | hit | hit |
+| 23,179 | 75% | miss (refusal) | miss (refusal) |
+| 46,469 | 25% | hit | hit |
+| 46,469 | 50% | miss (rambled to cap) | miss (rambled to cap) |
+| 46,469 | 75% | hit | hit |
+| 92,636 | 25% | miss (hallucinated) | miss (hallucinated) |
+| 92,636 | 50% | miss (to cap) | hit |
+| 92,636 | 75% | hit | miss (to cap) |
+| **Total** | | **5/9** | **5/9** |
+
+- KV precision changes nothing here: identical totals, and the two cells that
+  differ are the cap-limited ones.
+- The failures are the interesting part: at 23K the model *refuses* ("I'm sorry,
+  but the background notes you..."), and at 93K it once **confabulates** a
+  passphrase ("The passphrase is: the zone kernel of..."). Those are real
+  long-context failure modes, not measurement artifacts.
+- At 92K the model frequently fails to finish an answer at all: with the deployed
+  4096 reasoning budget and a 1024-token output cap, all three tries produced no
+  final answer in the first retrieval pass. Quote a deep-context result only with
+  the reasoning allowance stated.
+
+Receipts: `benchmarks/longctx_kv_q8_0_rb512.*`, `benchmarks/longctx_kv_q4_0.*`.
+
+### 11.5 Fidelity: continuation NLL and perplexity
+
+**Continuation NLL** (ds4fa's `score_llama`: target-token negative log-likelihood
+of DeepSeek's own tracked continuations; 100 cases x 24 target tokens; engine
+default KV):
+
+| Metric | Value |
+|---|---|
+| Mean average NLL | **0.6238** |
+| Scorer summary | avg_nll 0.6305, first-match 34/100, avg common prefix 2.21 tokens |
+| Wall | 245 s including model load |
+
+Two caveats bound this number: the fixture's hosted-API logprobs are all `0.0`, so
+it is a *relative* metric for comparing our own configurations, not a comparison
+against the hosted model; and `score_llama` has no KV-type option, so it always
+scores at the engine default (q8_0). The KV comparison therefore rides on
+perplexity below.
+
+**Perplexity** (wikitext-2 test, 20 chunks x 512 tokens, single sequence):
+
+| KV | PPL |
+|---|---:|
+| q8_0 | **7.46 +/- 0.33** |
+| q4_0 | **7.36 +/- 0.33** |
+
+Getting a usable value needs `-b` equal to `-c`. With the default batch (2048)
+llama-perplexity decodes `n_seq=4` chunks in parallel and reports **PPL 2792**,
+which is nonsense for this architecture; with `-b 512 --ub 512` (`n_seq=1`) the
+same 20 chunks give 7.46. Treat multi-sequence perplexity for `deepseek4` in this
+fork as broken until fixed. Receipts: `benchmarks/nll_kv_q8_0_20261013_211750.*`,
+`benchmarks/ppl_kv_q8_0_20261013_212611.json` and
+`benchmarks/ppl_kv_q4_0_20261013_212809.json` (single-sequence runs),
+`benchmarks/ppl_kv_q8_0_20261013_120847.json` (the default-batch anomaly).
+
+### 11.6 KV precision: the verdict
+
+| | q8_0 | q4_0 |
+|---|---|---|
+| RAM at 1M ctx | 105.96 GiB | 105.02 GiB (**-0.9 GiB**) |
+| Decode, short generation | 18.8-19.7 tok/s | 16.5 tok/s (**-13%**) |
+| Decode, long generation (accuracy run) | 14.73 tok/s | 14.67 tok/s |
+| Accuracy (92 suite) | 81/92 | 79/92 |
+| Retrieval | 5/9 | 5/9 |
+
+q4_0 KV buys well under 1 GiB at the full window and costs decode throughput on
+short generations, with no measurable accuracy or retrieval benefit. **q8_0 stays
+the default.** A per-load override exists (`halofpx load --cache-type-k q4_0
+--cache-type-v q4_0`) for anyone who needs the last gigabyte.
+
+### 11.7 Request timeouts and client-side cancellation (verified)
+
+| Check | Result |
+|---|---|
+| Request longer than the old 300 s cap, via the router | **502.3 s, HTTP 200** (64,002-token prompt, 493.9 s prefill) |
+| Streaming keepalive during a long prefill | first SSE event at **30.1 s** (the engine ping) |
+| Client disconnect mid-prefill | next request served in **9.9 s** vs 0.8 s idle, i.e. generation stopped (~10 s unwind) |
+
+The 300 s cap was the router's own hard-coded timeout, not the engine's. Requests
+are now unbounded by default (`HALOFPX_REQUEST_TIMEOUT`), with a 10 s connect
+timeout so a dead engine still fails fast, and `-to 86400` as an engine-side
+safety net. Receipts: `benchmarks/timeout_verify_*.json`.

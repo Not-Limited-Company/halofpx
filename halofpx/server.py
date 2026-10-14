@@ -13,7 +13,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 from halofpx import __version__
-from halofpx.config import DEFAULT_ENGINE_PORT, HALOFPX_API_KEY
+from halofpx.config import DEFAULT_ENGINE_PORT, HALOFPX_API_KEY, REQUEST_TIMEOUT, CONNECT_TIMEOUT
 from halofpx.registry import ModelRegistry
 from halofpx.model_manager import ModelManager
 from halofpx.engine_manager import EngineManager
@@ -89,6 +89,8 @@ class LoadRequest(BaseModel):
     checkpoint_every: int = 4096
     mlock: bool = False
     use_mmap: Optional[bool] = None
+    kv_cache_type_k: Optional[str] = None
+    kv_cache_type_v: Optional[str] = None
     optimization_mode: str = "auto"
 
 class PullRequest(BaseModel):
@@ -122,6 +124,19 @@ async def list_openai_models():
         })
     return {"object": "list", "data": data}
 
+def proxy_timeout() -> httpx.Timeout:
+    """Per-request timeout for the engine hop.
+
+    No read/write cap by default: a long prefill or a long generation is
+    legitimate on this hardware, and the client owns cancellation (a streaming
+    client that disconnects tears the upstream request down).  The connect
+    timeout stays short so a dead engine still fails fast.  Override with
+    HALOFPX_REQUEST_TIMEOUT / HALOFPX_CONNECT_TIMEOUT.
+    """
+    return httpx.Timeout(connect=CONNECT_TIMEOUT, read=REQUEST_TIMEOUT,
+                         write=REQUEST_TIMEOUT, pool=CONNECT_TIMEOUT)
+
+
 @app.post("/v1/chat/completions")
 async def chat_completions(request: Request):
     if not engine_mgr.is_running():
@@ -131,7 +146,7 @@ async def chat_completions(request: Request):
         )
 
     body = await request.body()
-    client = httpx.AsyncClient(timeout=300.0)
+    client = httpx.AsyncClient(timeout=proxy_timeout())
     target_url = f"http://127.0.0.1:{engine_mgr.engine_port}/v1/chat/completions"
 
     # Forward headers
@@ -169,7 +184,7 @@ async def completions(request: Request):
         raise HTTPException(status_code=503, detail="No model loaded.")
     
     body = await request.body()
-    async with httpx.AsyncClient(timeout=300.0) as client:
+    async with httpx.AsyncClient(timeout=proxy_timeout()) as client:
         resp = await client.post(
             f"http://127.0.0.1:{engine_mgr.engine_port}/v1/completions",
             content=body,
@@ -251,6 +266,8 @@ async def load_model(req: LoadRequest):
             checkpoint_every=req.checkpoint_every,
             mlock=req.mlock,
             use_mmap=req.use_mmap,
+            kv_cache_type_k=req.kv_cache_type_k,
+            kv_cache_type_v=req.kv_cache_type_v,
             optimization_mode=req.optimization_mode
         )
     if res.get("status") == "error":

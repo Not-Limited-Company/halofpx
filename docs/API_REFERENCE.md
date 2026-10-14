@@ -22,6 +22,24 @@ curl -X POST http://localhost:8010/v1/chat/completions \
   }'
 ```
 
+### Request timeouts and client-side cancellation
+
+A 128K-token prefill measures ~26 minutes on Strix Halo, so the router does **not**
+impose a fixed request timeout. The proxy hop uses:
+
+| Setting | Default | Meaning |
+|---|---|---|
+| `HALOFPX_REQUEST_TIMEOUT` | unset (no cap) | seconds allowed for one proxied request; `0` or negative means unbounded |
+| `HALOFPX_CONNECT_TIMEOUT` | `10` | connect/pool timeout, so a dead engine still fails fast |
+| `HALOFPX_ENGINE_TIMEOUT` | `86400` | engine read/write timeout (`llama-server -to`), a 24 h safety net |
+
+Cancellation semantics: use `"stream": true` and close the connection whenever you
+like — the router tears down the upstream request and the engine stops generating
+for that slot. Non-streaming requests instead wait for the router to buffer the
+whole answer, so the client's own timeout is what ends them. Streaming clients get
+keepalives during a long prefill because the engine's SSE ping interval
+(`--sse-ping-interval`) defaults to 30 s.
+
 ### Model Listing (`GET /v1/models`)
 Returns list of all available registered models.
 

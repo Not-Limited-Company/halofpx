@@ -10,7 +10,7 @@ import subprocess
 import urllib.request
 from pathlib import Path
 from typing import Optional, Dict, Any
-from halofpx.config import get_engine_binary, get_amd_env, DEFAULT_ENGINE_PORT, ROOT_DIR
+from halofpx.config import get_engine_binary, get_amd_env, DEFAULT_ENGINE_PORT, ROOT_DIR, ENGINE_TIMEOUT
 from halofpx.registry import ModelRegistry
 from halofpx.hardware import get_hardware_profile
 
@@ -123,6 +123,8 @@ class EngineManager:
         checkpoint_every: int = 4096,
         mlock: bool = False,
         use_mmap: Optional[bool] = None,
+        kv_cache_type_k: Optional[str] = None,
+        kv_cache_type_v: Optional[str] = None,
         optimization_mode: str = "auto"
     ) -> Dict[str, Any]:
         # Unload current model if loaded
@@ -174,8 +176,8 @@ class EngineManager:
         ctx = ctx_size or cfg.get("ctx_size", 262144)
         threads = cfg.get("threads", 16)
         ngl = cfg.get("n_gpu_layers", 99)
-        kv_k = cfg.get("kv_cache_type_k", "q8_0")
-        kv_v = cfg.get("kv_cache_type_v", "q8_0")
+        kv_k = kv_cache_type_k or cfg.get("kv_cache_type_k", "q8_0")
+        kv_v = kv_cache_type_v or cfg.get("kv_cache_type_v", "q8_0")
         use_mtp = cfg.get("mtp_enabled", True)
         if optimization_mode == "cache":
             use_mtp = False
@@ -213,6 +215,9 @@ class EngineManager:
             "-fa", "on" if cfg.get("flash_attn", True) else "off",
             "-np", str(slot_count),
             "-c", str(ctx),
+            # engine read/write timeout; 24h safety net by default so a long
+            # prefill or generation is never cut off (see halofpx/config.py)
+            "-to", str(int(ENGINE_TIMEOUT)),
             "-b", "2048",
             "-ub", "1024",
             "-t", str(threads),

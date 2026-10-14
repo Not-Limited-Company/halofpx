@@ -14,3 +14,7 @@ engine/bin
 .cache/
 cache/
 models
+
+# downloaded eval corpus and run logs (receipts are the json/md files)
+benchmarks/corpora/
+benchmarks/logs/

@@ -1,0 +1,68 @@
+{
+ "tag": "kv_q4_0",
+ "kv": "q4_0",
+ "notes": "per-load KV override via /api/v1/load (kv_cache_type_k/v)",
+ "timestamp": "20261013_134605",
+ "rows": [
+  {
+   "kv": "q4_0",
+   "ctx": 4096,
+   "loaded": true,
+   "engine_kv": {},
+   "load_s": 52.5,
+   "error": null,
+   "ram_used_gib": 100.39,
+   "ram_avail_gib": 24.7,
+   "ram_delta_gib": 93.43,
+   "gtt_used_gib": 92.36,
+   "pulse": {
+    "tok_s": 16.58,
+    "ttft_ms": 512.5,
+    "draft_n": 90,
+    "draft_acc": 38,
+    "answer_ok": true,
+    "wall_s": 3.9
+   }
+  },
+  {
+   "kv": "q4_0",
+   "ctx": 262144,
+   "loaded": true,
+   "engine_kv": {},
+   "load_s": 52.5,
+   "error": null,
+   "ram_used_gib": 101.34,
+   "ram_avail_gib": 23.74,
+   "ram_delta_gib": 94.52,
+   "gtt_used_gib": 93.05,
+   "pulse": {
+    "tok_s": 16.54,
+    "ttft_ms": 554.9,
+    "draft_n": 90,
+    "draft_acc": 38,
+    "answer_ok": true,
+    "wall_s": 3.9
+   }
+  },
+  {
+   "kv": "q4_0",
+   "ctx": 1048576,
+   "loaded": true,
+   "engine_kv": {},
+   "load_s": 53.0,
+   "error": null,
+   "ram_used_gib": 105.02,
+   "ram_avail_gib": 20.07,
+   "ram_delta_gib": 98.2,
+   "gtt_used_gib": 95.56,
+   "pulse": {
+    "tok_s": 15.67,
+    "ttft_ms": 822.4,
+    "draft_n": 90,
+    "draft_acc": 38,
+    "answer_ok": true,
+    "wall_s": 4.4
+   }
+  }
+ ]
+}

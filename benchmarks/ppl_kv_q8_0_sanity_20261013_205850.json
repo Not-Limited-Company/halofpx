@@ -1,0 +1,25 @@
+{
+ "tag": "kv_q8_0_sanity",
+ "kv": "q8_0",
+ "ctx": 512,
+ "chunks": 2,
+ "corpus": "/opt/halofpx/benchmarks/corpora/wikitext-2-raw/wiki.test.raw",
+ "timestamp": "20261013_205850",
+ "ppl": 6.953,
+ "ppl_err": 0.91688,
+ "wall_s": 52.5,
+ "notes": "",
+ "error": null,
+ "tail": [
+  "0.10 minutes",
+  "[1]5.4305,[2]6.9530,",
+  "",
+  "0.45.290.280 I cmn          init: llama threadpool init, n_threads = 16",
+  "0.45.418.323 I ",
+  "0.45.418.420 I system_info: n_threads = 16 (n_threads_batch = 16) / 32 | ROCm : NO_VMM = 1 | FA_ALL_QUANTS = 1 | CPU : SSE3 = 1 | SSSE3 = 1 | AVX = 1 | AVX_VNNI = 1 | AVX2 = 1 | F16C = 1 | FMA = 1 | BMI2 = 1 | AVX512 = 1 | AVX512_VBMI = 1 | AVX512_VNNI = 1 | AVX512_BF16 = 1 | LLAMAFILE = 1 | OPENMP = 1 | REPACK = 1 | ",
+  "0.45.418.437 I perplexity: tokenizing the input ..",
+  "0.45.783.846 I perplexity: tokenization took 365.4 ms",
+  "0.45.783.920 I perplexity: calculating perplexity over 2 chunks, n_ctx=512, batch_size=512, n_seq=1",
+  "0.49.014.484 I perplexity: 3.23 seconds per pass - ETA 0.52.300.208 I Final estimate: PPL = 6.9530 +/- 0.91688"
+ ]
+}

@@ -21,6 +21,26 @@ class ServerRouteTests(unittest.TestCase):
         self.assertEqual(len(pairs), len(set(pairs)))
 
 
+class RequestTimeoutPolicyTests(unittest.TestCase):
+    """Long generations must not be cut off by a fixed proxy timeout."""
+
+    def test_read_is_uncapped_but_connect_still_fails_fast(self):
+        from halofpx.server import proxy_timeout
+        timeout = proxy_timeout()
+        self.assertIsNone(timeout.read)
+        self.assertIsNone(timeout.write)
+        self.assertEqual(timeout.connect, 10.0)
+
+    def test_env_can_impose_a_budget_and_zero_means_unbounded(self):
+        from halofpx import config
+        with mock.patch.dict("os.environ", {"HALOFPX_REQUEST_TIMEOUT": "900"}):
+            self.assertEqual(config.get_request_timeout(), 900.0)
+        with mock.patch.dict("os.environ", {"HALOFPX_REQUEST_TIMEOUT": "0"}):
+            self.assertIsNone(config.get_request_timeout())
+        with mock.patch.dict("os.environ", {"HALOFPX_CONNECT_TIMEOUT": "30"}):
+            self.assertEqual(config.get_connect_timeout(), 30.0)
+
+
 @unittest.skipUnless(HAVE_TESTCLIENT, "fastapi TestClient (httpx) not available")
 class ServerEndpointTests(unittest.TestCase):
     @classmethod

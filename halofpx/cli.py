@@ -171,6 +171,8 @@ def cmd_load(args):
         "checkpoint_every": args.checkpoint_every,
         "mlock": args.mlock,
         "use_mmap": args.mmap,
+        "kv_cache_type_k": getattr(args, "kv_cache_type_k", None),
+        "kv_cache_type_v": getattr(args, "kv_cache_type_v", None),
         "optimization_mode": args.optimization_mode
     }
     try:
@@ -456,6 +458,10 @@ def build_parser() -> argparse.ArgumentParser:
     p_load.add_argument("--ctx-checkpoints", type=int, help="Context checkpoints per slot (auto by system RAM)")
     p_load.add_argument("--cache-reuse", type=int, default=256, help="Minimum reusable prompt chunk size")
     p_load.add_argument("--checkpoint-every", type=int, default=4096, help="Checkpoint interval in tokens")
+    p_load.add_argument("--cache-type-k", dest="kv_cache_type_k", default=None,
+                        help="KV cache type for K (e.g. f16, q8_0, q4_0); default from run_config")
+    p_load.add_argument("--cache-type-v", dest="kv_cache_type_v", default=None,
+                        help="KV cache type for V (e.g. f16, q8_0, q4_0); default from run_config")
     p_load.add_argument("--mlock", action="store_true", help="Pin model pages in RAM (requires memlock permission)")
     mmap_group = p_load.add_mutually_exclusive_group()
     mmap_group.add_argument("--mmap", dest="mmap", action="store_true", help="Memory-map model weights")

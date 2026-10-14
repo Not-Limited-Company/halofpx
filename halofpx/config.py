@@ -171,6 +171,45 @@ DEFAULT_ENGINE_PORT = int(os.environ.get("HALOFPX_ENGINE_PORT", os.environ.get("
 DEFAULT_HOST = os.environ.get("HALOFPX_HOST", os.environ.get("ROCMFPX_HOST", "127.0.0.1"))
 HALOFPX_API_KEY = os.environ.get("HALOFPX_API_KEY", os.environ.get("ROCMFPX_API_KEY", "")).strip()
 
+
+def parse_optional_seconds(raw: str | None, default: float | None) -> float | None:
+    """Parse a seconds value where 0 or negative means "no limit" (None)."""
+    if raw is None or not str(raw).strip():
+        return default
+    try:
+        value = float(raw)
+    except ValueError:
+        return default
+    return None if value <= 0 else value
+
+
+def get_request_timeout() -> float | None:
+    """Proxy read/write timeout for one request; None means wait forever.
+
+    Generation on this APU legitimately runs for many minutes (a 128K-token
+    prefill alone measures ~26 min), so the default is no cap: the client owns
+    cancellation (streaming clients can disconnect and the upstream request is
+    closed). Set HALOFPX_REQUEST_TIMEOUT=SECONDS to impose a hard budget.
+    """
+    return parse_optional_seconds(os.environ.get("HALOFPX_REQUEST_TIMEOUT"), None)
+
+
+def get_connect_timeout() -> float:
+    """Connect/keepalive timeout, so a dead engine still fails fast."""
+    value = parse_optional_seconds(os.environ.get("HALOFPX_CONNECT_TIMEOUT"), 10.0)
+    return 10.0 if value is None else value
+
+
+# Engine-side read/write timeout (llama-server -to). The proxy has no cap by
+# default, and the engine keeps a 24 h safety net rather than a truly infinite
+# socket timeout; raise it with HALOFPX_ENGINE_TIMEOUT if you need more.
+ENGINE_TIMEOUT = parse_optional_seconds(
+    os.environ.get("HALOFPX_ENGINE_TIMEOUT"),
+    get_request_timeout() if get_request_timeout() is not None else 86400.0,
+)
+REQUEST_TIMEOUT = get_request_timeout()
+CONNECT_TIMEOUT = get_connect_timeout()
+
 def get_engine_binary(name="llama-server") -> Path | None:
     system_bin = shutil.which(name)
     if system_bin:

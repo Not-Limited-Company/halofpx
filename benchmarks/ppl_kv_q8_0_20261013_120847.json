@@ -1,0 +1,25 @@
+{
+ "tag": "kv_q8_0",
+ "kv": "q8_0",
+ "ctx": 512,
+ "chunks": 20,
+ "corpus": "/opt/halofpx/benchmarks/corpora/wikitext-2-raw/wiki.test.raw",
+ "timestamp": "20261013_120847",
+ "ppl": 2792.3651,
+ "ppl_err": 267.94354,
+ "wall_s": 112.3,
+ "notes": "",
+ "error": null,
+ "tail": [
+  "1.08 minutes",
+  "[1]1841.4630,[2]2217.6584,[3]3038.1446,[4]2756.0084,[5]2447.9655,[6]2687.0628,[7]2572.5480,[8]2599.1635,[9]2630.4488,[10]2453.2223,[11]2518.9114,[12]2582.0057,[13]2812.3554,[14]2884.2014,[15]2847.0008,[16]2765.6354,[17]2766.5500,[18]2734.4343,[19]2839.8377,[20]2792.3651,",
+  "",
+  "0.45.616.413 I cmn          init: llama threadpool init, n_threads = 16",
+  "0.45.747.470 I ",
+  "0.45.747.574 I system_info: n_threads = 16 (n_threads_batch = 16) / 32 | ROCm : NO_VMM = 1 | FA_ALL_QUANTS = 1 | CPU : SSE3 = 1 | SSSE3 = 1 | AVX = 1 | AVX_VNNI = 1 | AVX2 = 1 | F16C = 1 | FMA = 1 | BMI2 = 1 | AVX512 = 1 | AVX512_VBMI = 1 | AVX512_VNNI = 1 | AVX512_BF16 = 1 | LLAMAFILE = 1 | OPENMP = 1 | REPACK = 1 | ",
+  "0.45.747.592 I perplexity: tokenizing the input ..",
+  "0.46.112.467 I perplexity: tokenization took 364.865 ms",
+  "0.46.112.563 I perplexity: calculating perplexity over 20 chunks, n_ctx=512, batch_size=2048, n_seq=4",
+  "0.59.243.846 I perplexity: 13.13 seconds per pass - ETA 1.52.046.949 I Final estimate: PPL = 2792.3651 +/- 267.94354"
+ ]
+}

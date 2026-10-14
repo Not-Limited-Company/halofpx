@@ -4,6 +4,7 @@ from unittest import mock
 from pathlib import Path
 
 from halofpx.engine_manager import build_cache_args, get_cache_profile, get_amd_env, EngineManager, health_poll_attempts
+from halofpx.config import ENGINE_TIMEOUT
 
 
 class CacheProfileTests(unittest.TestCase):
@@ -63,6 +64,48 @@ class CacheProfileTests(unittest.TestCase):
                 self.assertIn("-ctxcp", cmd)
                 self.assertIn("--cache-prompt", cmd)
 
+                manager.unload_model()
+
+    @mock.patch("halofpx.engine_manager.urllib.request.urlopen")
+    @mock.patch("halofpx.engine_manager.subprocess.Popen")
+    def test_engine_gets_a_long_request_timeout(self, mock_popen, mock_urlopen):
+        """A long prefill or generation must not be cut off by the engine timeout."""
+        mock_resp = mock.Mock()
+        mock_resp.status = 200
+        mock_urlopen.return_value.__enter__.return_value = mock_resp
+        mock_proc = mock.Mock()
+        mock_proc.poll.return_value = None
+        mock_popen.return_value = mock_proc
+
+        manager = EngineManager()
+        with tempfile.NamedTemporaryFile() as fake_model, tempfile.NamedTemporaryFile() as fake_bin:
+            with mock.patch.object(manager.registry, "get_model_file_path", return_value=Path(fake_model.name)), \
+                 mock.patch("halofpx.engine_manager.get_engine_binary", return_value=Path(fake_bin.name)):
+                manager.load_model("qwen38-27b")
+                cmd = mock_popen.call_args[0][0]
+                self.assertIn("-to", cmd)
+                self.assertEqual(cmd[cmd.index("-to") + 1], str(int(ENGINE_TIMEOUT)))
+                manager.unload_model()
+
+    @mock.patch("halofpx.engine_manager.urllib.request.urlopen")
+    @mock.patch("halofpx.engine_manager.subprocess.Popen")
+    def test_kv_cache_type_override_reaches_the_engine(self, mock_popen, mock_urlopen):
+        """Per-load KV precision must override run_config (q8_0 vs q4_0 comparison)."""
+        mock_resp = mock.Mock()
+        mock_resp.status = 200
+        mock_urlopen.return_value.__enter__.return_value = mock_resp
+        mock_proc = mock.Mock()
+        mock_proc.poll.return_value = None
+        mock_popen.return_value = mock_proc
+
+        manager = EngineManager()
+        with tempfile.NamedTemporaryFile() as fake_model, tempfile.NamedTemporaryFile() as fake_bin:
+            with mock.patch.object(manager.registry, "get_model_file_path", return_value=Path(fake_model.name)), \
+                 mock.patch("halofpx.engine_manager.get_engine_binary", return_value=Path(fake_bin.name)):
+                manager.load_model("qwen38-27b", kv_cache_type_k="q4_0", kv_cache_type_v="q4_0")
+                cmd = mock_popen.call_args[0][0]
+                self.assertEqual(cmd[cmd.index("-ctk") + 1], "q4_0")
+                self.assertEqual(cmd[cmd.index("-ctv") + 1], "q4_0")
                 manager.unload_model()
 
     @mock.patch("halofpx.engine_manager.urllib.request.urlopen", side_effect=Exception("refused"))
