@@ -1,0 +1,24 @@
+{
+ "tag": "slots1_ctx1048576",
+ "timestamp": "20261014_154859",
+ "notes": "single stream baseline at ctx 1048576",
+ "requests": 1,
+ "max_tokens": 256,
+ "wall_s": 15.8,
+ "per_stream_decode_tps": [
+  16.94
+ ],
+ "mean_per_stream_tps": 16.94,
+ "aggregate_tps": 16.21,
+ "rows": [
+  {
+   "ok": true,
+   "wall_s": 15.8,
+   "generated_tokens": 256,
+   "decode_tps": 16.94,
+   "ttft_ms": 705.4,
+   "draft_acc": 173,
+   "draft_n": 402
+  }
+ ]
+}

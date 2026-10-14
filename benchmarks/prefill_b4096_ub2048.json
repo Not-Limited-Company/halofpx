@@ -1,0 +1,26 @@
+{
+ "tag": "prefill_b4096_ub2048",
+ "notes": "prefill tuning: -b 4096 -ub 2048, ~92K-token code prompt",
+ "timestamp": "20261014_144405",
+ "needle": "ZEBRA-CANYON-DEEP-7731",
+ "rows": [
+  {
+   "content": "code",
+   "target_tokens": 92000,
+   "condition": "cap1024_plain",
+   "max_tokens": 1024,
+   "style": "plain",
+   "wall_s": 1786.6,
+   "ok": true,
+   "prompt_tokens": 124608,
+   "prefill_s": 1693.9,
+   "generated_tokens": 1024,
+   "hit_cap": true,
+   "retrieved": false,
+   "answered": true,
+   "answer_chars": 2544,
+   "correct": false,
+   "answer_tail": "*9.9 s** vs 0.8 s idle, i.e. generation stopped (~10 s unwind) |  The 300 s cap was the router's own hard-coded timeout,"
+  }
+ ]
+}

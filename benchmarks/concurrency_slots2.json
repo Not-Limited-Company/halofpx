@@ -1,0 +1,34 @@
+{
+ "tag": "slots2_ctx524288",
+ "timestamp": "20261014_154730",
+ "notes": "2 slots, 524288 pool (~262144 each), short prompts",
+ "requests": 2,
+ "max_tokens": 256,
+ "wall_s": 34.8,
+ "per_stream_decode_tps": [
+  7.59,
+  10.21
+ ],
+ "mean_per_stream_tps": 8.9,
+ "aggregate_tps": 14.69,
+ "rows": [
+  {
+   "ok": true,
+   "wall_s": 34.8,
+   "generated_tokens": 256,
+   "decode_tps": 7.59,
+   "ttft_ms": 1173.8,
+   "draft_acc": 130,
+   "draft_n": 620
+  },
+  {
+   "ok": true,
+   "wall_s": 26.2,
+   "generated_tokens": 256,
+   "decode_tps": 10.21,
+   "ttft_ms": 1159.0,
+   "draft_acc": 178,
+   "draft_n": 377
+  }
+ ]
+}

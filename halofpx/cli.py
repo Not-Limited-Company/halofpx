@@ -173,6 +173,8 @@ def cmd_load(args):
         "use_mmap": args.mmap,
         "kv_cache_type_k": getattr(args, "kv_cache_type_k", None),
         "kv_cache_type_v": getattr(args, "kv_cache_type_v", None),
+        "batch_size": getattr(args, "batch_size", None),
+        "ubatch_size": getattr(args, "ubatch_size", None),
         "optimization_mode": args.optimization_mode
     }
     try:
@@ -462,6 +464,10 @@ def build_parser() -> argparse.ArgumentParser:
                         help="KV cache type for K (e.g. f16, q8_0, q4_0); default from run_config")
     p_load.add_argument("--cache-type-v", dest="kv_cache_type_v", default=None,
                         help="KV cache type for V (e.g. f16, q8_0, q4_0); default from run_config")
+    p_load.add_argument("--batch-size", dest="batch_size", type=int, default=None,
+                        help="logical batch size N (-b); higher can speed up long prefill")
+    p_load.add_argument("--ubatch-size", dest="ubatch_size", type=int, default=None,
+                        help="physical batch size N (-ub)")
     p_load.add_argument("--mlock", action="store_true", help="Pin model pages in RAM (requires memlock permission)")
     mmap_group = p_load.add_mutually_exclusive_group()
     mmap_group.add_argument("--mmap", dest="mmap", action="store_true", help="Memory-map model weights")

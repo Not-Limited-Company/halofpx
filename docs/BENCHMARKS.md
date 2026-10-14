@@ -17,7 +17,7 @@ All benchmarks measured directly on **AMD Ryzen AI Max+ 395 (40 CU Radeon 8060S 
 | **`ornith-1.5-35b`** | MoE / 34.8B (3B active) | **`Q4_K_M`** (baseline) | **4.85** | **21.80 GiB** | **71.5 – 71.7 tok/s** | n/a | n/a |
 | **`ornith-35b`** | Dense / 35.0B | **`ROCmFPX_Speed`** | **4.15** | **19.20 GiB** | **11.20 tok/s** | **115.0+ tok/s (16 Slots)** | **N/A (Multi-Slot)** |
 | **`qwen38-flash-next`** | MoE / 125B (6B active + 51B PLE) | **`UD-IQ1_S`** | **1.56** | **67.55 GiB** | **27.3 tok/s** *(bring-up)* | n/a | n/a |
-| **`deepseek-v4-flash`** | MoE / 284B (16B active) | **`IQ2_XXS`** / **`ROCMFP2_STRIX`** (S40) | **2.06 / 2.88** | **80.77 / 95.29 GiB** | **22.50 tok/s** *(Vulkan, measured)* | **15.77 tok/s** *(IQ2+DSpark, ROCm0, measured)* / **13.5 tok/s** *(ROCMFP2_STRIX+DSpark, ROCm0, ctx8192, measured)* | **39.5%** *(IQ2+DSpark)* / **25.5%** *(ROCMFP2_STRIX+DSpark)* |
+| **`deepseek-v4-flash`** | MoE / 284B (16B active) | **`IQ2_XXS`** / **`ROCMFP2_STRIX`** (S40) | **2.06 / 2.88** | **80.77 / 95.29 GiB** | **18.11 tok/s** *(ROCm0 + DSpark, ctx 1M, measured; see §12)* | **15.77 tok/s** *(IQ2+DSpark, ROCm0, measured)* / **13.5 tok/s** *(ROCMFP2_STRIX+DSpark, ROCm0, ctx8192, measured)* | **39.5%** *(IQ2+DSpark)* / **25.5%** *(ROCMFP2_STRIX+DSpark)* |
 | **`ling3-flash`** | MoE / 124B (5.1B active) | **`Q4_K_M`** | **4.85** | **71.72 GiB** | **45.23 tok/s** | **55.1 tok/s** (n2 / p0.6) | **94.3%** |
 | **`nex-n2.5-mini`** | MoE / 34.7B (3B active) | **`ROCmFP4_STRIX_LEAN`** | **4.29** | **17.32 GiB** | **76.92 tok/s** *(Vulkan)* / **68.62 tok/s** *(ROCm)* | n/a | n/a |
 | **`nex-n2.5-mini`** | MoE / 34.7B (3B active) | **`Q4_K_M`** (baseline) | **4.88** | **19.71 GiB** | **72.76 tok/s** *(Vulkan)* / **60.39 tok/s** *(ROCm)* | n/a | n/a |
@@ -409,6 +409,13 @@ can be re-graded).
 
 ### 11.4 Long-context retrieval, q8_0 vs q4_0 KV
 
+> **Caveat added 2026-10-14: this table used synthetic repetitive filler and
+> overstates real-world recall.** Repeating it with realistic content (Wikipedia
+> prose, source code) and a self-checked needle gives far fewer hits, plus
+> substitution failures where the model answers with *other* in-context entities.
+> Use section 12 for operating decisions; this section is kept for the KV
+> comparison it was built for.
+
 Needle planted at 25/50/75% depth in varied filler (a repeated paragraph makes
 retrieval unfairly hard), asked for by name; reasoning budget bounded to 512
 tokens and output capped at 1024 so that "no answer emitted" cannot be mistaken
@@ -536,3 +543,88 @@ The 300 s cap was the router's own hard-coded timeout, not the engine's. Request
 are now unbounded by default (`HALOFPX_REQUEST_TIMEOUT`), with a 10 s connect
 timeout so a dead engine still fails fast, and `-to 86400` as an engine-side
 safety net. Receipts: `benchmarks/timeout_verify_*.json`.
+\n
+---
+
+## 12. Operating guidance for this lane (measured 2026-10-12..14)
+
+Measured on this host with `IQ2_XXS` + DSpark at the shipped default (ctx
+1048576, KV q8_0, reasoning budget 4096 unless stated). Every number has a receipt
+under `benchmarks/`. Written for the workload this lane serves: interactive chat
+with short prompts, plus long agentic sessions that accumulate cached context.
+
+### 12.1 Configuration
+
+| Choice | Value | Why |
+|---|---|---|
+| Variant | `IQ2_XXS` (80.77 GiB) | fidelity-checked, loads with no transcode |
+| Backend | **ROCm0** | 14.73 tok/s undrafted vs **10.96** on Vulkan, and 760 ms vs 1270 ms TTFT (`benchmarks/benchmark_20261014_155103.json`) |
+| Speculation | DSpark on | 18.11 tok/s drafted vs 14.73 undrafted, same session |
+| KV cache | `q8_0` | q4_0 saves ~0.9 GiB at 1M, costs decode, no accuracy/retrieval/PPL gain |
+| Context | 1048576 | fits with 19 GiB spare, ~6.3 KiB/token |
+| Reasoning | 4096 for analysis, **off for lookups** | section 12.4 |
+| Threads / batch | 16 / `-b 2048 -ub 1024` | batch tuning is worth at most 2% (12.5) |
+
+### 12.2 Interactive turns (short prompts)
+
+TTFT ~0.5-0.9 s and decode ~18 tok/s drafted, so a 500-token reply is ~30 s. With
+reasoning off, lookup-style answers are 5-20 tokens and land in 1-2 s.
+
+### 12.3 Long agentic sessions (cached prefixes)
+
+- **Keep the prompt prefix append-only.** Reuse is cheap when it holds: a
+  42,309-token prefix was re-served in **11 s** versus 321 s cold (prose), and
+  139 s -> 0.2 s in the synthetic probe.
+- Reuse granularity is the checkpoint interval (`-cms 4096`), so an edit near the
+  start costs a re-prefill from the nearest checkpoint, not from scratch.
+- Compaction or any mid-history rewrite invalidates the cache from that point:
+  treat it as a full re-read of the new prefix.
+- Cold reads scale as measured: 42K ~5.5 min, 84K ~15 min, 125K ~29 min.
+
+### 12.4 Deep-context recall is unreliable - do not treat it as ground truth
+
+Planted nonsense needle (`ZQGX-QUARTZ-8842`, verified absent from the corpus before
+planting), realistic content, 4 conditions (output cap 1024/4096 x plain/strict
+format) per cell:
+
+| content | prompt tokens | reasoning on | reasoning off | dominant failure mode |
+|---|---:|---|---|---|
+| Wikipedia prose | 42,308 | 0/4 exact | 0/4 exact | **substitution**: answered `Kiss You` (a song title from the article) in every cell |
+| Wikipedia prose | 84,208 | 3/4 exact | 3/4 exact | rambling to the cap; one parroted template |
+| Source code | 68,573 | 0/4 exact | 0/4 exact | retrieved but **mangled**: `ZQX-QUARTZ-8842` for `ZQGX-QUARTZ-8842` |
+| Source code | 102,834 | 0/4 exact | 0/4 exact | rambling / echoing unrelated context |
+
+- Failure is **content-dependent, not monotonic in depth**: 42K failed in every
+  cell while 84K succeeded in 3 of 4, under *both* reasoning settings. "It fits in
+  1M" must not be read as "it can recall from 1M".
+- The dangerous mode is substitution: the model asserts a plausible in-context
+  entity as the answer. An agent should verify or re-read rather than act on a
+  deep-context recollection.
+- **Reasoning off is the better lookup setting**: same exact-recall count at 84K
+  (3/4) with 16 generated tokens instead of 223, mean 713 vs 1660 tokens over the
+  matrix, and 5 cap-hits versus 10. Every rambling failure came from the
+  reasoning-enabled path.
+- This supersedes the synthetic-filler table in 11.4, which was optimistic because
+  a distinctive string stands out against repetitive filler.
+
+### 12.5 What does not help
+
+| Change | Result |
+|---|---|
+| Prefill batch tuning | `-b 2048 -ub 1024` = 72.0 tok/s, `-b 4096 -ub 2048` = 73.6 (+2%), `-b 8192 -ub 4096` = 68.0 (-6%) at a 125K prompt: prefill is bandwidth-bound, the ~29-minute read will not be tuned away |
+| Strict "exactly one final line" formatting | parroted back at depth; no termination benefit |
+| KV q4_0 | ~0.9 GiB saved at 1M, decode cost, no quality gain |
+| Larger reasoning budget | 80/92 vs 81/92 and 37% more tokens |
+| Vulkan0 | 34% slower decode and worse TTFT on this model |
+
+### 12.6 Two clients
+
+| setup | per-stream | aggregate |
+|---|---:|---:|
+| 1 stream, ctx 1048576 | 16.94 tok/s | 16.21 tok/s |
+| 2 slots, pool 524288 (~262144 each) | 8.90 tok/s | 14.69 tok/s |
+
+Two slots cost about 13% aggregate throughput and each client gets roughly half the
+single-stream rate. For bursty clients a 1M unified pool with 2 slots is the more
+flexible shape (the pool is shared, so an idle client does not reserve its half).
+Receipts: `benchmarks/concurrency_slots*.json`.

@@ -108,6 +108,27 @@ class CacheProfileTests(unittest.TestCase):
                 self.assertEqual(cmd[cmd.index("-ctv") + 1], "q4_0")
                 manager.unload_model()
 
+    @mock.patch("halofpx.engine_manager.urllib.request.urlopen")
+    @mock.patch("halofpx.engine_manager.subprocess.Popen")
+    def test_batch_overrides_reach_the_engine(self, mock_popen, mock_urlopen):
+        """Long-prefill tuning needs -b/-ub overridable per load."""
+        mock_resp = mock.Mock()
+        mock_resp.status = 200
+        mock_urlopen.return_value.__enter__.return_value = mock_resp
+        mock_proc = mock.Mock()
+        mock_proc.poll.return_value = None
+        mock_popen.return_value = mock_proc
+
+        manager = EngineManager()
+        with tempfile.NamedTemporaryFile() as fake_model, tempfile.NamedTemporaryFile() as fake_bin:
+            with mock.patch.object(manager.registry, "get_model_file_path", return_value=Path(fake_model.name)), \
+                 mock.patch("halofpx.engine_manager.get_engine_binary", return_value=Path(fake_bin.name)):
+                manager.load_model("qwen38-27b", batch_size=4096, ubatch_size=2048)
+                cmd = mock_popen.call_args[0][0]
+                self.assertEqual(cmd[cmd.index("-b") + 1], "4096")
+                self.assertEqual(cmd[cmd.index("-ub") + 1], "2048")
+                manager.unload_model()
+
     @mock.patch("halofpx.engine_manager.urllib.request.urlopen", side_effect=Exception("refused"))
     @mock.patch("halofpx.engine_manager.subprocess.Popen")
     def test_load_failure_captures_engine_log_tail(self, mock_popen, mock_urlopen):

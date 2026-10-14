@@ -1,0 +1,26 @@
+{
+ "tag": "prefill_b2048_ub1024",
+ "notes": "prefill tuning: -b 2048 -ub 1024, ~92K-token code prompt",
+ "timestamp": "20261014_141313",
+ "needle": "ZEBRA-CANYON-DEEP-7731",
+ "rows": [
+  {
+   "content": "code",
+   "target_tokens": 92000,
+   "condition": "cap1024_plain",
+   "max_tokens": 1024,
+   "style": "plain",
+   "wall_s": 1798.7,
+   "ok": true,
+   "prompt_tokens": 124608,
+   "prefill_s": 1730.2,
+   "generated_tokens": 1024,
+   "hit_cap": true,
+   "retrieved": false,
+   "answered": false,
+   "answer_chars": 0,
+   "correct": false,
+   "answer_tail": ""
+  }
+ ]
+}

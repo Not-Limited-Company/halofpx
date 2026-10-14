@@ -125,6 +125,8 @@ class EngineManager:
         use_mmap: Optional[bool] = None,
         kv_cache_type_k: Optional[str] = None,
         kv_cache_type_v: Optional[str] = None,
+        batch_size: Optional[int] = None,
+        ubatch_size: Optional[int] = None,
         optimization_mode: str = "auto"
     ) -> Dict[str, Any]:
         # Unload current model if loaded
@@ -218,8 +220,8 @@ class EngineManager:
             # engine read/write timeout; 24h safety net by default so a long
             # prefill or generation is never cut off (see halofpx/config.py)
             "-to", str(int(ENGINE_TIMEOUT)),
-            "-b", "2048",
-            "-ub", "1024",
+            "-b", str(batch_size or cfg.get("batch_size", 2048)),
+            "-ub", str(ubatch_size or cfg.get("ubatch_size", 1024)),
             "-t", str(threads),
             "--poll", "100",
             "-ctk", str(kv_k),

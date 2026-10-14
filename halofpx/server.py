@@ -104,6 +104,8 @@ class LoadRequest(BaseModel):
     use_mmap: Optional[bool] = None
     kv_cache_type_k: Optional[str] = None
     kv_cache_type_v: Optional[str] = None
+    batch_size: Optional[int] = None
+    ubatch_size: Optional[int] = None
     optimization_mode: str = "auto"
 
 class PullRequest(BaseModel):
@@ -287,6 +289,8 @@ async def load_model(req: LoadRequest):
             use_mmap=req.use_mmap,
             kv_cache_type_k=req.kv_cache_type_k,
             kv_cache_type_v=req.kv_cache_type_v,
+            batch_size=req.batch_size,
+            ubatch_size=req.ubatch_size,
             optimization_mode=req.optimization_mode
         )
     if res.get("status") == "error":
