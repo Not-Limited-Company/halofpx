@@ -21,6 +21,18 @@ class ServerRouteTests(unittest.TestCase):
         self.assertEqual(len(pairs), len(set(pairs)))
 
 
+class RegistryRefreshTests(unittest.TestCase):
+    """models.json edits must not need a server restart to take effect."""
+
+    def test_refresh_reloads_the_shared_registry(self):
+        from halofpx import server
+        engine_uses_same = server.engine_mgr.registry is server.registry
+        with mock.patch.object(server.registry, "reload") as reload_mock:
+            server.refresh_registry()
+            expected = 1 if engine_uses_same else 2
+            self.assertEqual(reload_mock.call_count, expected)
+
+
 class RequestTimeoutPolicyTests(unittest.TestCase):
     """Long generations must not be cut off by a fixed proxy timeout."""
 

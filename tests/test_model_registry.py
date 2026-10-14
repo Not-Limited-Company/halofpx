@@ -36,6 +36,8 @@ class ModelRegistryTests(unittest.TestCase):
         # affine vision build are not loadable by this engine, so they are not offered
         self.assertNotIn("ROCMFPX_MIX_STRIX", model["variants"])
         self.assertNotIn("VISION_EXP_STRIX_LEAN", model["variants"])
+        # the lane targets the model's declared maximum window (1M) by default
+        self.assertEqual(model["run_config"]["ctx_size"], 1048576)
         # run_config drives draft-dspark (block_size 5) on the HIP backend
         self.assertEqual(model["run_config"]["spec_type"], "draft-dspark")
         self.assertEqual(model["run_config"]["draft_n"], 5)

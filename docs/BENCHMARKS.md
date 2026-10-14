@@ -325,6 +325,17 @@ from 4K to 1M), because attention uses a single KV head with per-layer
 `compress_ratios`. Decode holds ~19 tok/s to 512K and dips slightly at 1M.
 Receipt: `benchmarks/ctx_sweep_kv_q8_0_first_pass.json`.
 
+**This is now the shipped default.** `run_config.ctx_size` for
+`deepseek-v4-flash` is **1048576** (the model's declared maximum) and
+`min_vram_gib` for `IQ2_XXS` is **106**, matching the measured 105.96 GiB
+footprint at that window. Measured on the default configuration (4-task suite,
+temp 0, ctx 1048576, KV q8_0, DSpark): **17.95 tok/s average decode, 888 ms
+average TTFT, 47.1% draft acceptance** - receipt
+`benchmarks/benchmark_20261013_213911.json`. The 6.3 GiB of KV that the larger
+window reserves is the whole cost of the change; the *practical* bound stays
+prefill time (section 11.2), so use 1M for long sessions and prefix reuse rather
+than one-shot million-token prompts.
+
 ### 11.2 What depth actually costs: prefill, not memory (KV q8_0, cold cache)
 
 | prompt tokens | prefill | prefill rate | decode |

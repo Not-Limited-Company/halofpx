@@ -21,6 +21,19 @@ from halofpx.telemetry import get_system_telemetry
 from halofpx.ollama import create_router as create_ollama_router
 
 registry = ModelRegistry()
+
+
+def refresh_registry() -> None:
+    """Re-read models.json so edits take effect without restarting the server.
+
+    The registry is cached in memory at import time, which silently hides an
+    edited run_config (or a new variant) until the next restart. Reload both
+    copies: the module-level one used for listings and the engine manager's.
+    """
+    registry.reload()
+    engine_registry = getattr(engine_mgr, "registry", None)
+    if engine_registry is not None and engine_registry is not registry:
+        engine_registry.reload()
 model_mgr = ModelManager(registry)
 engine_mgr = EngineManager(registry, engine_port=DEFAULT_ENGINE_PORT)
 
@@ -108,6 +121,10 @@ class DeleteRequest(BaseModel):
 
 @app.get("/v1/models")
 async def list_openai_models():
+    try:
+        refresh_registry()
+    except Exception:
+        pass  # keep serving the last good copy rather than failing the listing
     models_list = registry.list_models()
     active_status = engine_mgr.get_status()
     
@@ -243,6 +260,8 @@ async def load_model(req: LoadRequest):
     target_id = req.model_id or req.model
     if not target_id:
         raise HTTPException(status_code=400, detail="Missing required field: 'model_id' or 'model'.")
+    # pick up any edit to models.json (run_config, new variants) without a restart
+    refresh_registry()
     # load_model spawns a subprocess and polls the health endpoint (up to ~30s);
     # offload to a worker thread so the event loop stays responsive.
     # Serialized by load_lock: overlapping loads would kill each other's engine.
