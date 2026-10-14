@@ -1,0 +1,26 @@
+{
+ "tag": "186k",
+ "notes": "single ~186K-token prompt, KV q8_0, reasoning budget 512",
+ "timestamp": "20261013_215635",
+ "base_url": "http://127.0.0.1:8800",
+ "max_tokens": 1024,
+ "rows": [
+  {
+   "depth": 131072,
+   "position": 0.5,
+   "repeat": 0,
+   "wall_s": 3386.7,
+   "ok": true,
+   "prompt_tokens": 185621,
+   "prefill_s": 3309.4,
+   "prefill_tps": 56.1,
+   "decode_tps": 13.28,
+   "generated_tokens": 1024,
+   "draft_acc": 833,
+   "draft_n": 946,
+   "found": false,
+   "found_in_answer": false,
+   "answer": ": The passphrase is the vault passphrase. The passphrase is the vault passphrase. The passphrase is the vault passphrase. The passphrase is the vault passphrase. The passphrase is the vault passphrase"
+  }
+ ]
+}

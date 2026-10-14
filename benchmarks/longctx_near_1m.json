@@ -1,0 +1,18 @@
+{
+ "tag": "near_1m",
+ "notes": "single ~930K-token prompt inside the 1M window, KV q8_0, reasoning budget 512",
+ "timestamp": "20261013_225302",
+ "base_url": "http://127.0.0.1:8800",
+ "max_tokens": 1024,
+ "rows": [
+  {
+   "depth": 655360,
+   "position": 0.5,
+   "repeat": 0,
+   "wall_s": 5400.1,
+   "ok": false,
+   "error": "TimeoutError: timed out",
+   "found": null
+  }
+ ]
+}

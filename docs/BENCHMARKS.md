@@ -207,7 +207,7 @@ Measured 2026-10-11 on AMD Strix Halo (gfx1151, ROCm 7.2.4 HIP backend) with the
 
 ### The advertised 32.00 tok/s — provenance
 
-The **32.00 tok/s** figure shipped with the README is **not** measured with the IQ2_XXS quant alone (IQ2_XXS + DSpark measured 13–16 tok/s in our bench; unassisted decode measures 22.50 tok/s on Vulkan in other configurations). 32.00 tok/s was a **reference figure, not yet reproduced on this host**; the measured Route A (ROCMFP2_STRIX + DSpark) is **~13.5 tok/s** at ctx 8192 (context-dependent), labeled here as measured rather than projected. Until a ctx-optimized run reproduces the 32 tok/s target under identical hardware/flags, treat any higher number as a specific measured claim with exact configuration.
+The **32.00 tok/s** figure shipped with the README is **not** measured with the IQ2_XXS quant alone. A same-session A/B on the current default (ROCm0, ctx 1048576, KV q8_0) measures **18.11 tok/s drafted vs 14.73 undrafted** - speculation is a 23% gain here (section 11.2); the earlier 13-16 vs 22.50 tok/s pair compared different backends and contexts, so treat it as superseded. 32.00 tok/s was a **reference figure, not yet reproduced on this host**; the measured Route A (ROCMFP2_STRIX + DSpark) is **~13.5 tok/s** at ctx 8192 (context-dependent), labeled here as measured rather than projected. Until a ctx-optimized run reproduces the 32 tok/s target under identical hardware/flags, treat any higher number as a specific measured claim with exact configuration.
 
 - Route A variants: `ROCMFP2_STRIX` (95.3 GiB) from `Lucebox/DeepSeek-V4-Flash-0731-ROCmFP3`, provenance recorded per variant (transcoded to canonical S40 on this host). The sibling `ROCMFPX_MIX_STRIX` from the same repo is **not loadable** by this engine and is no longer offered in the registry - see section 10.
 - To reproduce: `halofpx pull deepseek-v4-flash --variant ROCMFP2_STRIX --with-draft`, transcode if needed (the transcoded file is now canonical type 111), then `halofpx load deepseek-v4-flash --variant ROCMFP2_STRIX` (defaults to ROCm0). RAM plan: ~102 GiB main + ~10.9 GiB drafter + KV — tight on 128 GB; drop `--ctx` or use `--mmap` (APU default differs) if needed.
@@ -358,6 +358,21 @@ the prompt cache: prefill dropped from 139 s to **0.2 s** for an identical
 checkpoint/prompt-cache machinery working as intended, and it is why repeat
 sessions are cheap while first reads of long context are not.
 
+**Extreme prompts, measured.** A 185,621-token prompt cost **3,309 s (55 min)** of
+prefill (56 tok/s, continuing the curve) and then produced no final answer inside
+1,024 output tokens. A ~930K-token prompt did not finish prefill within the probe's
+90-minute timeout. The 1M window is therefore for long sessions, prefix reuse and
+context accumulated across turns - not for one-shot giant prompts. Receipts:
+`benchmarks/longctx_186k.json`, `benchmarks/longctx_near_1m.json`.
+
+**Speculation pays on this lane.** Same session, same default (ctx 1048576, KV q8_0,
+ROCm0), 4-task suite: **18.11 tok/s with DSpark (47.1% acceptance) vs 14.73 tok/s
+without** - a 23% gain. The older "13-16 tok/s with DSpark" figure in section 9 came
+from comparing against 22.50 tok/s measured on Vulkan *undrafted* in a different
+context; that was a cross-backend comparison, not an A/B. Receipts:
+`benchmarks/benchmark_20261013_214127.json` (drafted),
+`benchmarks/benchmark_20261013_214258.json` (undrafted).
+
 ### 11.3 Accuracy: the 92-question suite, q8_0 vs q4_0 KV
 
 | Suite | q8_0 | q4_0 |
@@ -380,6 +395,13 @@ Reading:
 - For scale: the published figure for a larger 2.766 bpw 0731 ROCMFPX-MIX build
   is 82/92 on the same suite. Different artifact, different engine and a larger
   reasoning allowance, so treat the comparison as orientation only.
+
+**Reasoning-allowance sensitivity.** Re-running the q8_0 suite with the engine
+reasoning budget raised to 12288 and max output 16384 gives **80/92**: truncations
+fall 3 -> 2 and AIME rises 21 -> 22, while GPQA-Diamond and SuperGPQA each lose one.
+Mean generated tokens rise 2394 -> 3270 for no net change, so the score is
+insensitive to the allowance in this range and 4096 is the efficient setting (it is
+the default). Receipt: `benchmarks/ds4_eval_kv_q8_0_rb12288_20261014_*.json`.
 
 Receipts: `benchmarks/ds4_eval_kv_q8_0_20261012_152703.*` and
 `benchmarks/ds4_eval_kv_q4_0_20261013_135126.*` (traces included, so any verdict
@@ -416,7 +438,32 @@ for "not retrieved".
   final answer in the first retrieval pass. Quote a deep-context result only with
   the reasoning allowance stated.
 
-Receipts: `benchmarks/longctx_kv_q8_0_rb512.*`, `benchmarks/longctx_kv_q4_0.*`.
+**Three repeats per cell** (KV q8_0, same protocol) show the by-cell behaviour is
+*stable*, not noisy, and that the dominant failure is termination rather than
+retrieval:
+
+| prompt tokens | needle at | hits | ran to the cap, no answer | wrong content |
+|---:|---:|---:|---:|---|
+| 23,179 | 25% | 3/3 | 0 | - |
+| 23,179 | 50% | 3/3 | 0 | - |
+| 23,179 | 75% | 0/3 | 2 | 1 confident denial |
+| 46,469 | 25% | 3/3 | 0 | - |
+| 46,469 | 50% | 0/3 | 2 | 1 "not mentioned in the notes" |
+| 46,469 | 75% | 3/3 | 0 | - |
+| 92,636 | 25% | 0/3 | 3 | - |
+| 92,636 | 50% | 1/3 | 2 | - |
+| 92,636 | 75% | 1/3 | 1 | 1 partial recall |
+
+- **10 of 13 misses never produced a final answer** - at depth the model keeps
+  producing text past the output budget instead of answering. Only 3 are content
+  failures: two confident denials and one partial passphrase
+  (`ZEBRA-65536-75-1`, dropping the `CANYON` token).
+- The failing needle position moves earlier as depth grows (75% -> 50% -> 25%),
+  which looks like a bounded effective span rather than random loss - stated with
+  the caveat of 3 samples per cell. Raising the output cap recovers some of these
+  but not the content failures.
+- Receipts: `benchmarks/longctx_kv_q8_0_repeats.json` (with `longctx_kv_q8_0_rb512.*`
+  and `longctx_kv_q4_0.*` for the per-KV comparison).
 
 ### 11.5 Fidelity: continuation NLL and perplexity
 
@@ -442,6 +489,10 @@ perplexity below.
 |---|---:|
 | q8_0 | **7.46 +/- 0.33** |
 | q4_0 | **7.36 +/- 0.33** |
+
+Repeated at 100 chunks for tighter error bars: **q8_0 7.69 +/- 0.14** vs
+**q4_0 7.73 +/- 0.14** - still no measurable difference between KV precisions
+(receipts `benchmarks/ppl_kv_q8_0_100chunk_*.json`, `benchmarks/ppl_kv_q4_0_100chunk_*.json`).
 
 Getting a usable value needs `-b` equal to `-c`. With the default batch (2048)
 llama-perplexity decodes `n_seq=4` chunks in parallel and reports **PPL 2792**,
