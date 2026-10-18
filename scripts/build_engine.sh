@@ -12,7 +12,7 @@ ENGINE_DIR="${SCRIPT_DIR}/../engine"
 # reviewable commits rather than local edits that a rebuild can silently drop.
 # The previous base, charlie12345/ROCmFPX, is unmaintained (last push 2026-08-22).
 REPO_URL="https://github.com/Not-Limited-Company/ROCmFPX.git"
-ENGINE_BRANCH="${ENGINE_BRANCH:-halofpx/v1.7}"
+ENGINE_BRANCH="${ENGINE_BRANCH:-future}"
 # Expected commit of ENGINE_BRANCH, i.e. what the released engine was measured
 # against. Upstream base is 75e67a92b (org repo migrated 2026-09-02, q38rocm#11 —
 # native DFlash2, strict-qwen MTP, empty-data_spec checkpoint tolerance); our
@@ -28,8 +28,8 @@ PINNED_COMMIT="${PINNED_COMMIT:-7489ed6fe9fa29e7e6c9ad6a6953b14b465b77ff}"
 # was refactored past the patch, so patches/ no longer applies and must not be
 # applied again. Durable engine changes belong on the maintained branch above,
 # not in patches/ — nothing in patches/ is applied by this script.
-RELEASE_TARBALL_URL="https://github.com/julianmb/halofpx/releases/download/v1.7.0/strix-halo-vulkan-engine-v1.7.0-linux-x86_64.tar.gz"
-EXPECTED_TARBALL_SHA="839f3398181d4df0fee61eb266a0ae923b1f6c86b61f89933895a2855399b3df"
+RELEASE_TARBALL_URL="https://github.com/Not-Limited-Company/halofpx/releases/download/v1.7.0.nlc.1/strix-halo-vulkan-engine-v1.7.0.nlc.1-linux-x86_64.tar.gz"
+EXPECTED_TARBALL_SHA="ef47daaee3fa2f0090d5035ec38f5383eb1532fe299df00461a732e9a3715b0d"
 
 # 1. Architecture Detection
 detect_arch() {

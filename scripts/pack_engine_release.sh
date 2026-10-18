@@ -57,8 +57,8 @@ if [ -z "${VERSION}" ]; then
     echo "❌ --version is required (e.g. --version v1.7.1)"
     exit 1
 fi
-if [[ ! "${VERSION}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-    echo "❌ --version must look like vX.Y.Z (got '${VERSION}')"
+if [[ ! "${VERSION}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(\.[A-Za-z0-9]+)*$ ]]; then
+    echo "❌ --version must look like vX.Y.Z, optionally suffixed (e.g. v1.7.0.nlc.1); got '${VERSION}'"
     exit 1
 fi
 case "${MODE}" in
@@ -71,6 +71,11 @@ if [ ! -x "${ENGINE_BIN}/llama-server" ]; then
     echo "❌ ${ENGINE_BIN}/llama-server not found or not executable."
     echo "   Build it first: scripts/build_engine.sh --rocm"
     exit 1
+fi
+
+if [ "$(id -u)" -eq 0 ]; then
+    echo "⚠️  Running as root: ${OUT_DIR} and the asset will be owned by root,"
+    echo "   which blocks a later non-root run from overwriting them."
 fi
 
 echo "================================================================================"
@@ -108,14 +113,19 @@ PKG="${STAGE}/strix-halo-rocmfpx-engine"
 mkdir -p "${PKG}/bin"
 cp -a "${ENGINE_BIN}/." "${PKG}/bin/"
 
-engine_version="$(LD_LIBRARY_PATH="${ENGINE_BIN}" timeout 60 "${ENGINE_BIN}/llama-server" --version 2>/dev/null | head -1 || true)"
+# Identify the engine by fingerprinting its libraries, never by --version: the
+# executables are thin launchers carrying their own build-info, so --version can
+# name a commit that is not the code actually being shipped (AGENTS.md rule 9).
+engine_fingerprint="$(strings "${ENGINE_BIN}"/libllama-common.so.* 2>/dev/null | grep -oE '\b[0-9a-f]{9}\b' | sort -u | head -1 || true)"
+engine_version="$(LD_LIBRARY_PATH="${ENGINE_BIN}" timeout 60 "${ENGINE_BIN}/llama-server" --version 2>&1 | head -1 || true)"
 engine_commit="$(git -C "${ROOT_DIR}/engine/src" rev-parse HEAD 2>/dev/null || echo unknown)"
 engine_branch="$(git -C "${ROOT_DIR}/engine/src" rev-parse --abbrev-ref HEAD 2>/dev/null || echo unknown)"
 {
     echo "asset:    ${ASSET}"
     echo "mode:     ${MODE}"
     echo "built:    $(date -u +%Y-%m-%dT%H:%M:%SZ)"
-    echo "engine:   ${engine_version:-unknown}"
+    echo "engine:   ${engine_fingerprint:-unknown}  (from libllama-common, the code that runs)"
+    echo "reports:  ${engine_version:-unknown}"
     echo "source:   ${engine_branch} @ ${engine_commit}"
     echo
     echo "Contents are the engine's executables AND the shared libraries they load."

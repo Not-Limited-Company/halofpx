@@ -14,11 +14,14 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 BUILD_SCRIPT = ROOT / "scripts" / "build_engine.sh"
 
-VERSION_RE = re.compile(r"v\d+\.\d+\.\d+")
+VERSION_RE = re.compile(r"v\d+\.\d+\.\d+(?:\.[A-Za-z0-9]+)*")
+# Version tags may carry a suffix that marks a parallel downstream build, e.g.
+# v1.7.0.nlc.1 — our release of the author's v1.7.0 — so the suffix is part of
+# the version rather than an unmatched trailing string.
 # Matches release asset URLs with either a literal tag or ${ENGINE_RELEASE} in
 # the download path; group(1) is the path tag (or ""), group(2) the filename.
 URL_RE = re.compile(
-    r"https://github\.com/\S+/releases/download/(v\d+\.\d+\.\d+|\$\{ENGINE_RELEASE\})/(\S+?\.tar\.gz)")
+    r"https://github\.com/\S+/releases/download/(v\d+\.\d+\.\d+(?:\.[A-Za-z0-9]+)*|\$\{ENGINE_RELEASE\})/(\S+?\.tar\.gz)")
 STALE_SHA = "bbc7845db0c012b97f1c9b8a2733a7083c6f9a749a453866fbe1994151d3364f"
 
 
@@ -55,7 +58,7 @@ class EngineArtifactSyncTests(unittest.TestCase):
         }
         for path in files:
             text = _read(path)
-            arg = re.search(r"(?:ARG )?ENGINE_RELEASE[=:](v\d+\.\d+\.\d+)", text)
+            arg = re.search(r"(?:ARG )?ENGINE_RELEASE[=:](v\d+\.\d+\.\d+(?:\.[A-Za-z0-9]+)*)", text)
             arg_ver = arg.group(1) if arg else None
             for path_ver, filename in _engine_urls(text, arg_ver):
                 file_vers = VERSION_RE.findall(filename.replace("${ENGINE_RELEASE}", arg_ver or ""))
@@ -70,7 +73,7 @@ class EngineArtifactSyncTests(unittest.TestCase):
     def test_docker_arg_matches_bundled_engine_url(self):
         for dockerfile in [ROOT / "Dockerfile", ROOT / "Dockerfile.rocm"]:
             text = _read(dockerfile)
-            arg = re.search(r"ARG ENGINE_RELEASE=(v\d+\.\d+\.\d+)", text)
+            arg = re.search(r"ARG ENGINE_RELEASE=(v\d+\.\d+\.\d+(?:\.[A-Za-z0-9]+)*)", text)
             self.assertIsNotNone(arg, f"ARG ENGINE_RELEASE missing in {dockerfile.name}")
             urls = _engine_urls(text, arg.group(1))
             self.assertTrue(urls, f"no engine release URL in {dockerfile.name}")
@@ -120,6 +123,28 @@ class EngineArtifactSyncTests(unittest.TestCase):
         self.assertIn("$ORIGIN", script,
                       "the engine must be built with $ORIGIN in its rpath so that "
                       "engine/bin is self-contained")
+
+
+    def test_dockerfiles_verify_the_engine_asset(self):
+        """Both Dockerfiles must verify the engine asset they download, and the
+        vulkan digest must agree with build_engine.sh — they fetch the same file,
+        and previously neither Dockerfile checked anything at all."""
+        expected = re.search(r'EXPECTED_TARBALL_SHA="([0-9a-f]{64})"', _read(BUILD_SCRIPT))
+        self.assertIsNotNone(expected, "EXPECTED_TARBALL_SHA not found in build_engine.sh")
+
+        digests = {}
+        for dockerfile in [ROOT / "Dockerfile", ROOT / "Dockerfile.rocm"]:
+            text = _read(dockerfile)
+            m = re.search(r'ARG ENGINE_TARBALL_SHA=([0-9a-f]{64})', text)
+            self.assertIsNotNone(m, f"{dockerfile.name} must pin the engine asset digest")
+            self.assertIn("sha256sum -c", text,
+                          f"{dockerfile.name} must verify the engine asset it downloads")
+            digests[dockerfile.name] = m.group(1)
+
+        self.assertEqual(digests["Dockerfile"], expected.group(1),
+                         "Dockerfile and build_engine.sh must pin the same vulkan asset digest")
+        self.assertNotEqual(digests["Dockerfile"], digests["Dockerfile.rocm"],
+                            "the vulkan and dual assets are different files")
 
 
 if __name__ == "__main__":

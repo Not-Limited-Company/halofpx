@@ -4,7 +4,10 @@
 
 FROM ubuntu:24.04
 
-ARG ENGINE_RELEASE=v1.7.0
+ARG ENGINE_RELEASE=v1.7.0.nlc.1
+# Digest of the engine asset at ENGINE_RELEASE; see the Dockerfile. The dual
+# asset is a different file from the vulkan one, so it has its own digest.
+ARG ENGINE_TARBALL_SHA=9513ce15e86812e9665441f941e8e3eb7f56a32739f430c7516f58ea514905f9
 
 LABEL maintainer="HaloFPX & Strix Halo Open Source Community"
 LABEL description="Unified HaloFPX / ROCmFP4 Model Server for AMD Strix Halo & Radeon GPUs"
@@ -63,7 +66,8 @@ ENV ROCM_HOME=/opt/rocm
 # build; v1.7.0+ renamed -cpent to -cms and removed turbo4 KV — the server
 # probes for both, but older engines predate those changes).
 RUN mkdir -p /app/engine && \
-    curl -L "https://github.com/julianmb/q38rocm/releases/download/${ENGINE_RELEASE}/strix-halo-rocmfpx-engine-${ENGINE_RELEASE}-linux-x86_64.tar.gz" -o /tmp/engine.tar.gz && \
+    curl -fsSL "https://github.com/Not-Limited-Company/halofpx/releases/download/${ENGINE_RELEASE}/strix-halo-rocmfpx-engine-${ENGINE_RELEASE}-linux-x86_64.tar.gz" -o /tmp/engine.tar.gz && \
+    echo "${ENGINE_TARBALL_SHA}  /tmp/engine.tar.gz" | sha256sum -c - && \
     tar -xzf /tmp/engine.tar.gz -C /tmp/ && \
     cp -a /tmp/strix-halo-rocmfpx-engine/* /app/engine/ && \
     rm -rf /tmp/strix-halo-rocmfpx-engine /tmp/engine.tar.gz
