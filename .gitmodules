@@ -1,0 +1,4 @@
+[submodule "engine/src"]
+	path = engine/src
+	url = https://github.com/Not-Limited-Company/ROCmFPX.git
+	branch = halofpx/v1.7

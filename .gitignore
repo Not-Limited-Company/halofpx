@@ -9,7 +9,8 @@ dist/
 build/
 *.egg-info/
 models/
-engine/src/
+# engine/bin holds a built engine (binaries plus the shared libs they load);
+# the engine source is a git submodule at engine/src (see .gitmodules)
 engine/bin
 .cache/
 cache/
