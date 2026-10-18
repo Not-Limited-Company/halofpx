@@ -102,6 +102,31 @@ docker build -t halofpx:latest .
 docker build -f Dockerfile.rocm -t halofpx:rocm .
 ```
 
+### The engine inside the image comes from a release asset
+
+Neither Dockerfile builds the engine. Both download a pre-built tarball and load
+it from `/app/engine/bin`, so the asset must carry `bin/` **with** the shared
+libraries the executables load:
+
+| Dockerfile | Asset |
+|---|---|
+| `Dockerfile` | `strix-halo-vulkan-engine-<tag>-linux-x86_64.tar.gz` |
+| `Dockerfile.rocm` | `strix-halo-rocmfpx-engine-<tag>-linux-x86_64.tar.gz` |
+
+Produce one from a built engine, then publish it as a release asset:
+
+```bash
+./scripts/build_engine.sh --rocm            # or --vulkan
+./scripts/pack_engine_release.sh --version v1.7.0.nlc.1 --mode dual
+```
+
+The packager refuses to bundle an engine that still resolves libraries from
+`engine/src/build-*` (those paths do not exist in the image), prints the SHA256,
+and prints the URL / `ARG ENGINE_RELEASE` / `ARG ENGINE_TARBALL_SHA` fields that
+must move together. Both Dockerfiles verify that digest during the build, and
+`tests/test_engine_artifact_sync.py` fails if the versions or digests drift apart
+— a version mismatch there has shipped before.
+
 ---
 
 ## 6. Hardware Notes

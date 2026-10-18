@@ -207,9 +207,9 @@ Measured 2026-10-11 on AMD Strix Halo (gfx1151, ROCm 7.2.4 HIP backend) with the
 
 ### The advertised 32.00 tok/s — provenance
 
-The **32.00 tok/s** figure shipped with the README is **not** measured with the IQ2_XXS quant alone. A same-session A/B on the current default (ROCm0, ctx 1048576, KV q8_0) measures **18.11 tok/s drafted vs 14.73 undrafted** - speculation is a 23% gain here (section 11.2); the earlier 13-16 vs 22.50 tok/s pair compared different backends and contexts, so treat it as superseded. 32.00 tok/s was a **reference figure, not yet reproduced on this host**; the measured Route A (ROCMFP2_STRIX + DSpark) is **~13.5 tok/s** at ctx 8192 (context-dependent), labeled here as measured rather than projected. Until a ctx-optimized run reproduces the 32 tok/s target under identical hardware/flags, treat any higher number as a specific measured claim with exact configuration.
+The **32.00 tok/s** figure shipped with the README is **not** measured with the IQ2_XXS quant alone. A same-session A/B on the current default (ROCm0, ctx 1048576, KV q8_0) measures **18.11 tok/s drafted vs 14.73 undrafted** - speculation is a 23% gain here (section 11.2); the earlier 13-16 vs 22.50 tok/s pair compared different backends and contexts, so treat it as superseded. 32.00 tok/s was a **reference figure, not yet reproduced on gfx1151 hardware**; the measured Route A (ROCMFP2_STRIX + DSpark) is **~13.5 tok/s** at ctx 8192 (context-dependent), labeled here as measured rather than projected. Until a ctx-optimized run reproduces the 32 tok/s target under identical hardware/flags, treat any higher number as a specific measured claim with exact configuration.
 
-- Route A variants: `ROCMFP2_STRIX` (95.3 GiB) from `Lucebox/DeepSeek-V4-Flash-0731-ROCmFP3`, provenance recorded per variant (transcoded to canonical S40 on this host). The sibling `ROCMFPX_MIX_STRIX` from the same repo is **not loadable** by this engine and is no longer offered in the registry - see section 10.
+- Route A variants: `ROCMFP2_STRIX` (95.3 GiB) from `Lucebox/DeepSeek-V4-Flash-0731-ROCmFP3`, provenance recorded per variant (transcoded to canonical S40 on gfx1151 hardware). The sibling `ROCMFPX_MIX_STRIX` from the same repo is **not loadable** by this engine and is no longer offered in the registry - see section 10.
 - To reproduce: `halofpx pull deepseek-v4-flash --variant ROCMFP2_STRIX --with-draft`, transcode if needed (the transcoded file is now canonical type 111), then `halofpx load deepseek-v4-flash --variant ROCMFP2_STRIX` (defaults to ROCm0). RAM plan: ~102 GiB main + ~10.9 GiB drafter + KV — tight on 128 GB; drop `--ctx` or use `--mmap` (APU default differs) if needed.
 - IQ2_XXS + DSpark does **not** reach 32 tok/s on this hardware under these flags (measured ~13.5 tok/s). Do not swap a projected value for a measured one without recording the exact context window, n_predict, temperature, and acceptances for each run.
 
@@ -548,7 +548,7 @@ safety net. Receipts: `benchmarks/timeout_verify_*.json`.
 
 ## 12. Operating guidance for this lane (measured 2026-10-12..14)
 
-Measured on this host with `IQ2_XXS` + DSpark at the shipped default (ctx
+Measured on gfx1151 hardware with `IQ2_XXS` + DSpark at the shipped default (ctx
 1048576, KV q8_0, reasoning budget 4096 unless stated). Every number has a receipt
 under `benchmarks/`. Written for the workload this lane serves: interactive chat
 with short prompts, plus long agentic sessions that accumulate cached context.
@@ -628,3 +628,26 @@ Two slots cost about 13% aggregate throughput and each client gets roughly half 
 single-stream rate. For bursty clients a 1M unified pool with 2 slots is the more
 flexible shape (the pool is shared, so an idle client does not reserve its half).
 Receipts: `benchmarks/concurrency_slots*.json`.
+
+### 12.7 Engine artifact identity, and the stale-library trap (2026-10-18)
+
+The local engine that produced the numbers above turned out to be a **mix of two
+builds**. `engine/bin/llama-server` — a 17 KB launcher, not the engine — had been
+promoted from the pinned commit `75e67a92b`, while the shared libraries it loads
+(`libllama*`, `libggml*`) were rebuilt two commits later and never re-promoted.
+Because the launcher carries its own build-info, `llama-server --version` printed
+the older commit for an engine whose code was newer. That is why two builds can
+agree on version and still behave measurably differently.
+
+* **Do not identify a local engine by `--version`.** It reports the launcher.
+  Fingerprint the libraries instead, e.g.
+  `strings engine/bin/libllama-common.so.0.3.0 | grep -E '[0-9a-f]{9}'`, and
+  treat a promotion that copied only executables as suspect.
+* `scripts/build_engine.sh` now promotes the shared libraries alongside the
+  executables, builds with `$ORIGIN` in the rpath, and fails the build if `ldd`
+  still resolves anything from the build tree.
+
+These figures stay valid for the artifact they were measured on, but they do
+**not** transfer to the next engine: a rebuild from the maintained branch yields
+a different artifact, so re-measure before reusing any number here (AGENTS.md,
+"Benchmarks & claims").

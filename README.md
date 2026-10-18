@@ -164,8 +164,8 @@ Full methodology and raw numbers: [docs/BENCHMARKS.md](docs/BENCHMARKS.md).
 
 ### 1. Installation
 ```bash
-# Clone the repository
-git clone https://github.com/julianmb/halofpx.git
+# Clone the repository including the engine source (a submodule)
+git clone --recurse-submodules https://github.com/julianmb/halofpx.git
 cd halofpx
 
 # Install Python requirements and CLI
@@ -248,7 +248,7 @@ docker run -d -p 8010:8010 \
 
 ## 🤝 Upstream Integration & Engine Core
 
-`HaloFPX` wraps and orchestrates the **[ROCmFPX/ROCmFPX](https://github.com/ROCmFPX/ROCmFPX)** engine (org repo, migrated 2026-09-02), compiling directly against a pinned commit (`75e67a92b`, q38rocm#11) or downloading pre-compiled Strix Halo binaries via `./scripts/build_engine.sh --prebuilt`.
+`HaloFPX` wraps and orchestrates the **[ROCmFPX/ROCmFPX](https://github.com/ROCmFPX/ROCmFPX)** engine, built from our maintained fork of it. The engine source is a git submodule at `engine/src`, tracked on the `future` branch and pinned by commit (`75e67a92b`, q38rocm#11, plus a loader tolerance for Vision-Exp checkpoints); `scripts/build_engine.sh` asserts that pin before it builds. Build it with `./scripts/build_engine.sh --rocm`, pull engine updates with `./scripts/build_engine.sh --update-engine`, or download a published engine tarball with `./scripts/build_engine.sh --prebuilt`.
 
 ---
 

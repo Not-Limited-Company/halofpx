@@ -106,7 +106,7 @@ sidecars); see `docs/BENCHMARKS.md` section 10.
 RAM planning on 128 GB: ~95 GiB main + ~10.9 GiB drafter + KV cache. If it won't fit, reduce
 `--ctx` (KV is the growth knob) or use `--no-mmap`. Measured Route A numbers are in
 `docs/BENCHMARKS.md` section 9; the 32 tok/s figure there is a reference value, not a
-reproduced measurement on this host.
+reproduced measurement on gfx1151 hardware.
 
 ## Provenance
 

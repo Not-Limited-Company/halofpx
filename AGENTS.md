@@ -52,7 +52,32 @@ python3 -m json.tool registry/models.json > /dev/null
    `~/source/halofpx-research` by design (workshop layout), overridable
    via `HALOFPX_HF_CACHE_DIRS` / `HALOFPX_ENGINE_SEARCH_PATHS`.
 8. Commit style: conventional commits (`feat:`, `fix:`, `docs:`,
-   `refactor:`); push straight to `main`.
+   `refactor:`). `main` mirrors the author's repository and is never committed
+   to; our work lands on `future`.
+9. **Engine promotion:** `scripts/build_engine.sh` copies the built executables
+   **and their shared libraries** into `engine/bin/`, and that is the path the
+   server actually runs. A bare `cmake --build` does **not** update `engine/bin`,
+   so a rebuilt engine can sit unused while the old binary keeps serving, and a
+   partial promotion leaves stale libraries next to a fresh launcher. The
+   executables are thin launchers, so `--version` reports the *launcher's*
+   commit and can name a build that is not the code being served — fingerprint
+   the libraries instead. Promote explicitly before measuring, and confirm with
+   `ldd` that every library resolves from `engine/bin`.
+10. **Engine source:** `engine/src` is a git submodule, never an ad-hoc clone (a
+   stray clone is invisible to the repo, and its build tree ends up holding the
+   engine's only shared libraries). It is tracked on the maintained `future`
+   branch of our engine fork, and `scripts/build_engine.sh` asserts that the
+   checkout contains `PINNED_COMMIT` before it builds. Engine changes are pushed
+   to that branch — submodules check out detached, so be *on the branch* before
+   committing or the work is lost — and pulled with
+   `scripts/build_engine.sh --update-engine`. Moving the pin changes the shipped
+   engine artifact, so published numbers have to be re-measured.
+11. **Release assets:** engine tarballs come from
+   `scripts/pack_engine_release.sh`, and both Dockerfiles verify the digest of
+   the asset they download (`Dockerfile` shares its digest with
+   `EXPECTED_TARBALL_SHA` in `build_engine.sh`; the suite enforces that they
+   agree). A parallel downstream release uses a suffixed tag — `v1.7.0.nlc.1` —
+   so it is never confused with the author's tag for the same upstream version.
 
 ## Benchmarks & claims
 Any performance number published in README/docs must come from a measured
