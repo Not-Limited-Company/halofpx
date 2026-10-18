@@ -78,13 +78,48 @@ class EngineArtifactSyncTests(unittest.TestCase):
                 self.assertEqual(path_ver, arg.group(1),
                                  f"{dockerfile.name} bundles {path_ver}, ARG is {arg.group(1)}")
 
-    def test_engine_source_is_maintained_upstream(self):
+    def test_engine_source_is_the_maintained_fork(self):
         script = _read(BUILD_SCRIPT)
         m = re.search(r'REPO_URL="(https://github\.com/\S+?\.git)"', script)
         self.assertIsNotNone(m, "REPO_URL not found in build_engine.sh")
-        self.assertIn("ROCmFPX/ROCmFPX", m.group(1),
-                      "engine source should be the maintained ROCmFPX org repo, "
-                      "not the unmaintained charlie12345 fork (last push 2026-08-22)")
+        url = m.group(1)
+        self.assertIn("Not-Limited-Company/ROCmFPX", url,
+                      "engine source should be our maintained org fork, not the "
+                      "unmaintained charlie12345 fork (last push 2026-08-22)")
+        b = re.search(r'ENGINE_BRANCH="\$\{ENGINE_BRANCH:-([^}"]+)\}"', script)
+        self.assertIsNotNone(b, "ENGINE_BRANCH not found in build_engine.sh")
+        branch = b.group(1)
+
+        # The submodule must agree with the build script; otherwise a rebuild
+        # would silently use different source from the one the pin asserts.
+        gitmodules = _read(ROOT / ".gitmodules")
+        self.assertIn(url, gitmodules,
+                      "engine submodule URL disagrees with build_engine.sh")
+        self.assertIn(f"branch = {branch}", gitmodules,
+                      "engine submodule branch disagrees with build_engine.sh")
+
+    def test_engine_source_is_a_submodule_not_an_adhoc_clone(self):
+        # engine/src is a submodule now. It must stay tracked by the parent repo,
+        # and the build script must never clone it ad hoc: a stray clone is
+        # invisible to the parent repo and its build tree ends up holding the
+        # only copy of the engine's shared libraries.
+        self.assertNotIn("engine/src/", _read(ROOT / ".gitignore"),
+                         "engine/src must be tracked as a submodule, not ignored")
+        self.assertNotIn("git clone", _read(BUILD_SCRIPT),
+                         "build_engine.sh must initialise the submodule, not clone ad hoc")
+
+    def test_promotion_bundles_the_shared_libraries(self):
+        # Regression guard for a real outage: promoting only the executables
+        # leaves the engine's actual code in the build tree, so engine/bin
+        # cannot serve on its own and the small executables can drift from the
+        # libraries they load.
+        script = _read(BUILD_SCRIPT)
+        self.assertIn("bin/*.so*", script,
+                      "build_engine.sh must promote the engine's shared libraries "
+                      "into engine/bin")
+        self.assertIn("$ORIGIN", script,
+                      "the engine must be built with $ORIGIN in its rpath so that "
+                      "engine/bin is self-contained")
 
 
 if __name__ == "__main__":

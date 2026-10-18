@@ -7,18 +7,27 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ENGINE_DIR="${SCRIPT_DIR}/../engine"
-REPO_URL="https://github.com/ROCmFPX/ROCmFPX.git"
-# Production pin: org repo (migrated 2026-09-02, q38rocm#11) — native DFlash2,
-# strict-qwen MTP, empty-data_spec checkpoint tolerance; local patches retired.
-# Previous base charlie12345/ROCmFPX is unmaintained (last push 2026-08-22).
+# Engine source of truth: the git submodule at engine/src (see .gitmodules).
+# We build our maintained branch on the org fork, so engine changes are pushed,
+# reviewable commits rather than local edits that a rebuild can silently drop.
+# The previous base, charlie12345/ROCmFPX, is unmaintained (last push 2026-08-22).
+REPO_URL="https://github.com/Not-Limited-Company/ROCmFPX.git"
+ENGINE_BRANCH="${ENGINE_BRANCH:-halofpx/v1.7}"
+# Expected commit of ENGINE_BRANCH, i.e. what the released engine was measured
+# against. Upstream base is 75e67a92b (org repo migrated 2026-09-02, q38rocm#11 —
+# native DFlash2, strict-qwen MTP, empty-data_spec checkpoint tolerance); our
+# branch carries one commit on top that tolerates a missing ffn_exp_probs_b on
+# hash-routed layers. Moving this pin changes the shipped engine artifact, so it
+# has to be re-measured before any published number is reused.
+PINNED_COMMIT="${PINNED_COMMIT:-7489ed6fe9fa29e7e6c9ad6a6953b14b465b77ff}"
 #
 # patches/ is retired: the MTP prompt-cache checkpoint fix (issue #3) landed
 # upstream as 0ef57fb81 "server: tolerate empty data_spec during checkpoint
 # restore" (clears the MTP draft state in common/speculative.cpp, which is what
 # the old patch open-coded in tools/server/server-context.cpp). The base code
 # was refactored past the patch, so patches/ no longer applies and must not be
-# applied again. Nothing in patches/ is applied by this script.
-PINNED_COMMIT="${PINNED_COMMIT:-75e67a92b2d230849aec2d6c1f7b1d1fd624e0e0}"
+# applied again. Durable engine changes belong on the maintained branch above,
+# not in patches/ — nothing in patches/ is applied by this script.
 RELEASE_TARBALL_URL="https://github.com/julianmb/halofpx/releases/download/v1.7.0/strix-halo-vulkan-engine-v1.7.0-linux-x86_64.tar.gz"
 EXPECTED_TARBALL_SHA="839f3398181d4df0fee61eb266a0ae923b1f6c86b61f89933895a2855399b3df"
 
@@ -154,11 +163,16 @@ download_prebuilt() {
 # Parse CLI flags
 BUILD_MODE="vulkan"
 DOWNLOAD_ONLY=0
+UPDATE_ENGINE=0
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --prebuilt|--download)
             DOWNLOAD_ONLY=1
+            shift
+            ;;
+        --update-engine|--sync-engine)
+            UPDATE_ENGINE=1
             shift
             ;;
         --rocm|--dual|--hip)
@@ -176,6 +190,7 @@ while [[ $# -gt 0 ]]; do
             echo "  --vulkan (default)  Build lightweight standalone Vulkan engine (no ROCm/HIP required)"
             echo "  --rocm, --dual      Build dual ROCm (HIP) + Vulkan engine for high-batch prefill"
             echo "  --prebuilt          Download pre-compiled release tarball"
+            echo "  --update-engine     Pull the maintained engine branch into the submodule, then exit"
             echo "  -h, --help          Show this help message"
             exit 0
             ;;
@@ -186,6 +201,26 @@ while [[ $# -gt 0 ]]; do
             ;;
     esac
 done
+
+if [ "$UPDATE_ENGINE" -eq 1 ]; then
+    # Bring the engine submodule onto the tip of the maintained branch. This
+    # changes the engine artifact, so re-measure and bump PINNED_COMMIT before
+    # reusing any published number.
+    if [ ! -e "${ENGINE_DIR}/src/.git" ]; then
+        git -C "${SCRIPT_DIR}/.." submodule update --init --recursive engine/src
+    fi
+    git -C "${ENGINE_DIR}/src" fetch origin "${ENGINE_BRANCH}"
+    git -C "${ENGINE_DIR}/src" checkout -q "${ENGINE_BRANCH}"
+    git -C "${ENGINE_DIR}/src" merge --ff-only "origin/${ENGINE_BRANCH}"
+    new_head="$(git -C "${ENGINE_DIR}/src" rev-parse HEAD)"
+    echo "Engine source updated: ${ENGINE_BRANCH} @ ${new_head:0:9}"
+    if [ "${new_head}" != "${PINNED_COMMIT}" ]; then
+        echo "⚠️  That is not the recorded pin (${PINNED_COMMIT:0:9})."
+        echo "   Re-measure the engine, then bump PINNED_COMMIT and commit the"
+        echo "   submodule pointer before publishing performance numbers."
+    fi
+    exit 0
+fi
 
 if [ "$DOWNLOAD_ONLY" -eq 1 ]; then
     if download_prebuilt; then
@@ -239,17 +274,39 @@ if [ "$MISSING_TOOLS" -eq 1 ]; then
     download_prebuilt
 fi
 
-# Clone or Update ROCmFPX Repository
-if [ ! -d "${ENGINE_DIR}/src/.git" ]; then
-    echo "Cloning ROCmFPX toolchain into ${ENGINE_DIR}/src..."
-    mkdir -p "${ENGINE_DIR}"
-    git clone "${REPO_URL}" "${ENGINE_DIR}/src"
+# Initialise the engine submodule if it is missing. Never clone ad hoc: a stray
+# clone is invisible to the parent repo, its build tree ends up holding the only
+# copy of the engine's shared libraries, and its git identity has bitten us.
+if [ ! -e "${ENGINE_DIR}/src/.git" ]; then
+    echo "Initialising the engine submodule (engine/src)..."
+    git -C "${SCRIPT_DIR}/.." submodule update --init --recursive engine/src
 fi
 
 cd "${ENGINE_DIR}/src"
-echo "Checking out pinned commit: ${PINNED_COMMIT}..."
-git fetch origin
-git checkout "${PINNED_COMMIT}" || true
+if ! git checkout -q "${ENGINE_BRANCH}" 2>/dev/null; then
+    git checkout -q -B "${ENGINE_BRANCH}" "origin/${ENGINE_BRANCH}" 2>/dev/null || {
+        echo "❌ Cannot check out ${ENGINE_BRANCH} in ${ENGINE_DIR}/src."
+        echo "   Run: git submodule update --init --recursive engine/src"
+        exit 1
+    }
+fi
+
+ENGINE_HEAD="$(git rev-parse HEAD)"
+if [ "${ENGINE_HEAD}" != "${PINNED_COMMIT}" ]; then
+    if git merge-base --is-ancestor "${PINNED_COMMIT}" HEAD 2>/dev/null; then
+        echo "⚠️  [NOTICE] Engine source is ahead of the recorded pin"
+        echo "   checked out ${ENGINE_HEAD}"
+        echo "   recorded pin ${PINNED_COMMIT}"
+        echo "   Re-measure before reusing any published performance number, then"
+        echo "   bump PINNED_COMMIT once the new engine is the one we ship."
+    else
+        echo "❌ Engine source (${ENGINE_HEAD}) does not contain the recorded pin"
+        echo "   (${PINNED_COMMIT}). Check out ${ENGINE_BRANCH} from ${REPO_URL}, or"
+        echo "   update PINNED_COMMIT deliberately."
+        exit 1
+    fi
+fi
+echo "Engine source:         ${ENGINE_BRANCH} @ ${ENGINE_HEAD:0:9}"
 
 # patches/ is retired on purpose: the MTP prompt-cache checkpoint fix (issue
 # #3) is upstream in the pinned commit as 0ef57fb81 "server: tolerate empty
@@ -326,6 +383,10 @@ if [ "$BUILD_MODE" == "dual" ]; then
         -DGGML_F16C=ON
         -DGGML_FMA=ON
         -DCMAKE_POSITION_INDEPENDENT_CODE=ON
+        # $ORIGIN in the rpath is what lets promotion copy the shared libraries
+        # in beside the executables; engine/bin then loads its own copies.
+        -DCMAKE_BUILD_RPATH='$ORIGIN'
+        -DCMAKE_INSTALL_RPATH='$ORIGIN'
         -DCMAKE_HIP_FLAGS="-D__AMDGCN_WAVEFRONT_SIZE=32 -isystem ${ROCM_INC}"
         -DLLAMA_BUILD_WEBUI=OFF
         -DCMAKE_BUILD_TYPE=Release
@@ -346,6 +407,8 @@ else
         -DGGML_F16C=ON
         -DGGML_FMA=ON
         -DCMAKE_POSITION_INDEPENDENT_CODE=ON
+        -DCMAKE_BUILD_RPATH='$ORIGIN'
+        -DCMAKE_INSTALL_RPATH='$ORIGIN'
         -DLLAMA_BUILD_WEBUI=OFF
         -DCMAKE_BUILD_TYPE=Release
     )
@@ -358,9 +421,27 @@ JOBS="${JOBS:-$(nproc 2>/dev/null || echo 8)}"
 echo "Compiling binaries with ${JOBS} parallel threads..."
 cmake --build . --config Release -j "${JOBS}" --target llama-server llama-cli llama-bench llama-quantize
 
-# Link/Install Executables to engine/bin
+# Link/Install Executables AND their shared libraries to engine/bin.
+# Promoting only the executables (as this script used to) leaves the actual code
+# in the build tree: engine/src then cannot be pruned, engine/bin is not
+# self-contained, and the small executables can silently drift from the
+# libraries they load. See AGENTS.md convention 9.
 mkdir -p "${ENGINE_DIR}/bin"
 cp -f bin/llama-server bin/llama-cli bin/llama-bench bin/llama-quantize "${ENGINE_DIR}/bin/"
+if compgen -G "bin/*.so*" > /dev/null; then
+    cp -f bin/*.so* "${ENGINE_DIR}/bin/"
+fi
+
+# Fail loudly if the promoted engine still resolves anything from the build tree.
+if command -v ldd >/dev/null 2>&1; then
+    engine_strays="$(LD_LIBRARY_PATH="${ENGINE_DIR}/bin" ldd "${ENGINE_DIR}/bin/llama-server" 2>/dev/null \
+        | awk '{print $3}' | grep -c "^${ENGINE_DIR}/src/" || true)"
+    if [ "${engine_strays:-0}" -gt 0 ]; then
+        echo "❌ engine/bin is not self-contained: ${engine_strays} libraries still resolve from ${ENGINE_DIR}/src."
+        echo "   The build needs \$ORIGIN in its rpath and the .so files promoted above."
+        exit 1
+    fi
+fi
 
 echo "================================================================================"
 echo " ✅ Build Complete (${BUILD_MODE^^})!"
