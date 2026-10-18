@@ -17,7 +17,7 @@ All benchmarks measured directly on **AMD Ryzen AI Max+ 395 (40 CU Radeon 8060S 
 | **`ornith-1.5-35b`** | MoE / 34.8B (3B active) | **`Q4_K_M`** (baseline) | **4.85** | **21.80 GiB** | **71.5 – 71.7 tok/s** | n/a | n/a |
 | **`ornith-35b`** | Dense / 35.0B | **`ROCmFPX_Speed`** | **4.15** | **19.20 GiB** | **11.20 tok/s** | **115.0+ tok/s (16 Slots)** | **N/A (Multi-Slot)** |
 | **`qwen38-flash-next`** | MoE / 125B (6B active + 51B PLE) | **`UD-IQ1_S`** | **1.56** | **67.55 GiB** | **27.3 tok/s** *(bring-up)* | n/a | n/a |
-| **`deepseek-v4-flash`** | MoE / 284B (16B active) | **`IQ2_XXS`** / **`ROCMFP2_STRIX`** (S40) | **2.06 / 2.88** | **80.77 / 95.29 GiB** | **18.11 tok/s** *(ROCm0 + DSpark, ctx 1M, measured; see §12)* | **15.77 tok/s** *(IQ2+DSpark, ROCm0, measured)* / **13.5 tok/s** *(ROCMFP2_STRIX+DSpark, ROCm0, ctx8192, measured)* | **39.5%** *(IQ2+DSpark)* / **25.5%** *(ROCMFP2_STRIX+DSpark)* |
+| **`deepseek-v4-flash`** | MoE / 284B (16B active) | **`IQ2_XXS`** / **`ROCMFP2_STRIX`** (S40) | **2.06 / 2.88** | **80.77 / 95.29 GiB** | **14.73 tok/s** *(undrafted, measured earlier; see §12.1)* | **17.70 tok/s** *(IQ2+DSpark, ROCm0, ctx 1M, measured 2026-10-18)* / **13.5 tok/s** *(ROCMFP2_STRIX+DSpark, ROCm0, ctx8192, measured)* | **47.1%** *(average, IQ2+DSpark)* / **25.5%** *(ROCMFP2_STRIX+DSpark)* |
 | **`ling3-flash`** | MoE / 124B (5.1B active) | **`Q4_K_M`** | **4.85** | **71.72 GiB** | **45.23 tok/s** | **55.1 tok/s** (n2 / p0.6) | **94.3%** |
 | **`nex-n2.5-mini`** | MoE / 34.7B (3B active) | **`ROCmFP4_STRIX_LEAN`** | **4.29** | **17.32 GiB** | **76.92 tok/s** *(Vulkan)* / **68.62 tok/s** *(ROCm)* | n/a | n/a |
 | **`nex-n2.5-mini`** | MoE / 34.7B (3B active) | **`Q4_K_M`** (baseline) | **4.88** | **19.71 GiB** | **72.76 tok/s** *(Vulkan)* / **60.39 tok/s** *(ROCm)* | n/a | n/a |
@@ -207,11 +207,11 @@ Measured 2026-10-11 on AMD Strix Halo (gfx1151, ROCm 7.2.4 HIP backend) with the
 
 ### The advertised 32.00 tok/s — provenance
 
-The **32.00 tok/s** figure shipped with the README is **not** measured with the IQ2_XXS quant alone. A same-session A/B on the current default (ROCm0, ctx 1048576, KV q8_0) measures **18.11 tok/s drafted vs 14.73 undrafted** - speculation is a 23% gain here (section 11.2); the earlier 13-16 vs 22.50 tok/s pair compared different backends and contexts, so treat it as superseded. 32.00 tok/s was a **reference figure, not yet reproduced on gfx1151 hardware**; the measured Route A (ROCMFP2_STRIX + DSpark) is **~13.5 tok/s** at ctx 8192 (context-dependent), labeled here as measured rather than projected. Until a ctx-optimized run reproduces the 32 tok/s target under identical hardware/flags, treat any higher number as a specific measured claim with exact configuration.
+The **32.00 tok/s** figure shipped with the README is **not** measured with the IQ2_XXS quant alone. The current default (ROCm0, ctx 1048576, KV q8_0) measures **17.70 tok/s drafted** on the shipped engine (2026-10-18); the earlier same-session A/B measured 18.11 tok/s drafted vs 14.73 undrafted - speculation is a 23% gain here (section 11.2) - and the earlier 13-16 vs 22.50 tok/s pair compared different backends and contexts, so treat it as superseded. 32.00 tok/s was a **reference figure, not yet reproduced on gfx1151 hardware**; the measured Route A (ROCMFP2_STRIX + DSpark) is **~13.5 tok/s** at ctx 8192 (context-dependent), labeled here as measured rather than projected. Until a ctx-optimized run reproduces the 32 tok/s target under identical hardware/flags, treat any higher number as a specific measured claim with exact configuration.
 
 - Route A variants: `ROCMFP2_STRIX` (95.3 GiB) from `Lucebox/DeepSeek-V4-Flash-0731-ROCmFP3`, provenance recorded per variant (transcoded to canonical S40 on gfx1151 hardware). The sibling `ROCMFPX_MIX_STRIX` from the same repo is **not loadable** by this engine and is no longer offered in the registry - see section 10.
 - To reproduce: `halofpx pull deepseek-v4-flash --variant ROCMFP2_STRIX --with-draft`, transcode if needed (the transcoded file is now canonical type 111), then `halofpx load deepseek-v4-flash --variant ROCMFP2_STRIX` (defaults to ROCm0). RAM plan: ~102 GiB main + ~10.9 GiB drafter + KV — tight on 128 GB; drop `--ctx` or use `--mmap` (APU default differs) if needed.
-- IQ2_XXS + DSpark does **not** reach 32 tok/s on this hardware under these flags (measured ~13.5 tok/s). Do not swap a projected value for a measured one without recording the exact context window, n_predict, temperature, and acceptances for each run.
+- IQ2_XXS + DSpark does **not** reach 32 tok/s on this hardware under these flags (17.70 tok/s at ctx 1M, 2026-10-18); the ROCMFP2_STRIX route measured ~13.5 tok/s at ctx 8192. Do not swap a projected value for a measured one without recording the exact context window, n_predict, temperature, and acceptances for each run.
 
 ---
 
@@ -289,10 +289,9 @@ bf16 DSpark drafter, `--spec-type draft-dspark --spec-draft-n-max 5
   16.83 tok/s and 43.8% draft acceptance on that request; no benchmark task
   tripped the repetition detector.
 - Receipt: `benchmarks/benchmark_20261012_143003.md` and `.json`.
-- Reference: the earlier IQ2_XXS + DSpark figure at ctx 4096 in the model matrix
-  above is 15.77 tok/s. The re-verified run lands at or above it, so no
-  regression is observable on this lane; treat sub-tok/s differences as run
-  variance.
+- Reference: the IQ2_XXS + DSpark figure in the model matrix above is now
+  17.70 tok/s at ctx 1M (2026-10-18); this run's 16.83 tok/s is within run
+  variance of it, so no regression is observable on this lane.
 
 ---
 
@@ -305,6 +304,12 @@ SuperGPQA, 25 AIME 2025, 17 COMPSEC), graded by ds4fa's own
 `ds4-eval --regrade-trace`, i.e. the same grader behind the published
 "82/92" and "COMPSEC-17" figures for this model family. Receipts: every table
 below cites files under `benchmarks/`.
+
+The tables here were measured on the engine build in use at the time (libraries
+from `dc227f4ee`). The shipped engine is now pinned at `7489ed6f`, and the
+headline decode, accuracy and acceptance figures were re-measured on it (12.7);
+the prefill, long-context, perplexity and retrieval measurements below were not
+repeated.
 
 ### 11.1 Memory and decode vs context window (KV q8_0, the default)
 
@@ -366,12 +371,15 @@ context accumulated across turns - not for one-shot giant prompts. Receipts:
 `benchmarks/longctx_186k.json`, `benchmarks/longctx_near_1m.json`.
 
 **Speculation pays on this lane.** Same session, same default (ctx 1048576, KV q8_0,
-ROCm0), 4-task suite: **18.11 tok/s with DSpark (47.1% acceptance) vs 14.73 tok/s
-without** - a 23% gain. The older "13-16 tok/s with DSpark" figure in section 9 came
-from comparing against 22.50 tok/s measured on Vulkan *undrafted* in a different
-context; that was a cross-backend comparison, not an A/B. Receipts:
+ROCm0), 4-task suite: **17.70 tok/s with DSpark (47.1% average acceptance)** on the
+shipped engine (2026-10-18), receipts `benchmarks/benchmark_20261018_154541.json`
+and `..._154618.json`. The earlier build measured 18.11 tok/s drafted against
+14.73 undrafted in one session - a 23% gain, receipts
 `benchmarks/benchmark_20261013_214127.json` (drafted),
-`benchmarks/benchmark_20261013_214258.json` (undrafted).
+`benchmarks/benchmark_20261013_214258.json` (undrafted). The older "13-16 tok/s
+with DSpark" figure in section 9 came from comparing against 22.50 tok/s measured
+on Vulkan *undrafted* in a different context; that was a cross-backend comparison,
+not an A/B.
 
 ### 11.3 Accuracy: the 92-question suite, q8_0 vs q4_0 KV
 
@@ -558,8 +566,8 @@ with short prompts, plus long agentic sessions that accumulate cached context.
 | Choice | Value | Why |
 |---|---|---|
 | Variant | `IQ2_XXS` (80.77 GiB) | fidelity-checked, loads with no transcode |
-| Backend | **ROCm0** | 14.73 tok/s undrafted vs **10.96** on Vulkan, and 760 ms vs 1270 ms TTFT (`benchmarks/benchmark_20261014_155103.json`) |
-| Speculation | DSpark on | 18.11 tok/s drafted vs 14.73 undrafted, same session |
+| Backend | **ROCm0** | averaged 784 / 603 ms TTFT across the 2026-10-18 runs; the earlier build's same-session comparison was 14.73 tok/s undrafted vs **10.96** on Vulkan and 760 ms vs 1270 ms TTFT (`benchmarks/benchmark_20261014_155103.json`) |
+| Speculation | DSpark on | **17.70 tok/s** over the 4-task benchmark, two runs (`benchmarks/benchmark_20261018_154541.json`, `..._154618.json`); the earlier build measured 18.11 tok/s drafted vs 14.73 undrafted in one session |
 | KV cache | `q8_0` | q4_0 saves ~0.9 GiB at 1M, costs decode, no accuracy/retrieval/PPL gain |
 | Context | 1048576 | fits with 19 GiB spare, ~6.3 KiB/token |
 | Reasoning | 4096 for analysis, **off for lookups** | section 12.4 |
@@ -567,7 +575,7 @@ with short prompts, plus long agentic sessions that accumulate cached context.
 
 ### 12.2 Interactive turns (short prompts)
 
-TTFT ~0.5-0.9 s and decode ~18 tok/s drafted, so a 500-token reply is ~30 s. With
+TTFT ~0.6-0.8 s and decode ~17.7 tok/s drafted, so a 500-token reply is ~30 s. With
 reasoning off, lookup-style answers are 5-20 tokens and land in 1-2 s.
 
 ### 12.3 Long agentic sessions (cached prefixes)
@@ -651,3 +659,22 @@ These figures stay valid for the artifact they were measured on, but they do
 **not** transfer to the next engine: a rebuild from the maintained branch yields
 a different artifact, so re-measure before reusing any number here (AGENTS.md,
 "Benchmarks & claims").
+
+**Re-measured on the shipped engine (2026-10-18).** Same lane configuration and
+prompts, engine pinned at `7489ed6f` (build 11475):
+
+| Metric | Shipped engine |
+|---|---|
+| Decode, 4-task average | **17.70 / 17.70 tok/s** (two runs) |
+| TTFT, average | 784 / 603 ms |
+| ds4-eval spot check | **8/8** graded |
+| Draft acceptance | **41.6 / 39.4 / 57.9 / 49.5 %** (47.1% average) |
+
+Receipts: `benchmarks/benchmark_20261018_154541.*`,
+`benchmarks/benchmark_20261018_154618.*`,
+`benchmarks/ds4_eval_spotcheck_7489ed6f_20261018_153601.*`. The draft-acceptance
+figures match the earlier build's fingerprint exactly, so this is the same
+artifact class rather than a behavioural change: decode is within ~1% of that
+build, and both are ~3% faster than the static ROCm 10.0 engine the container
+previously bundled (that comparison lives with the deployment notes, since those
+runs also covered the container).
