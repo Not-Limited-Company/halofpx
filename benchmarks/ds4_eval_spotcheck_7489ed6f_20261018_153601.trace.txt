@@ -1,0 +1,244 @@
+===== CASE 1/8 GPQA Diamond recNu3MXkvWUzHZr9 =====
+source: GPQA Diamond
+id: recNu3MXkvWUzHZr9
+status: PASSED
+picked: __sentinel__
+MODEL_OUTPUT_BEGIN bytes=1345
+We need answer physics. Need solve. Problem: spacecraft speed v=0.99999987 c. Alien average lifetime ~150 solar years. Astronaut 22 years old. From astronaut's point of view (proper time) to reach Earth? Need distance? Large Magellanic Cloud to Earth distance? Need know distance. LMC is about 160,000 light-years? Actually ~163,000 ly. Speed 0.99999987 c. Proper time = distance in Earth frame / v divided by gamma? For traveler, elapsed proper time ≈ (distance/c) * sqrt(1 - beta^2)/beta? If distance D light-years, speed v≈c, proper time ≈ D * sqrt(1-v^2/c^2) years (since c=1 ly/yr). Need compute.
+
+v = 0.99999987 c. 1 - v/c = 1.3e-7? Actually 0.99999987 = 1 - 0.00000013 = 1 - 1.3e-7. gamma = 1/sqrt(1-v^2) ≈ 1/sqrt(2*(1-v)) = 1/sqrt(2*1.3e-7)=1/sqrt(2.6e-7)=1/(5.099e-4)=1960? Let's compute: 1-v=1.3e-7, 1-v^2≈2.6e-7, sqrt=5.099e-4, gamma≈1961. Proper time for D=160,000 ly ≈ D/gamma = 81.6 years. If D=163,000 ->83.1. Choices: A 72, B 81, C die before reaching (lifetime 150, astronaut age 22 => remaining 128 solar years; proper time ~82 <128 so not die), D 77. Closest B 81 years. Need answer B.
+
+But check "average lifetime roughly 150 solar years" and astronaut 22 years old. From point of view astronaut, if travel takes ~81 years, he will be 103, alive. So C false. Answer B.
+
+Need final exactly: Answer: B
+
+
+Answer: B
+MODEL_OUTPUT_END
+
+===== CASE 2/8 SuperGPQA 001b51d76b4d422988f2c11f104a2c6c =====
+source: SuperGPQA
+id: 001b51d76b4d422988f2c11f104a2c6c
+status: PASSED
+picked: __sentinel__
+MODEL_OUTPUT_BEGIN bytes=847
+We need answer. Question: "In production, grass powder is often pressed into pellets, and crushed hay is processed into ____, grass cake." Choices. Need identify phrase. Grass cake? Crushed hay processed into "a block of grass"? Actually grass cake is a compressed block of hay/grass? In production, grass powder pressed into pellets, crushed hay processed into "grass cake" maybe "a block of grass"? Let's parse.
+
+Question: "In production, grass powder is often pressed into pellets , and crushed hay is processed into ____, grass cake." It says "crushed hay is processed into ____, grass cake." So blank should be a noun phrase that describes form of grass cake. Choices include "a block of grass" likely. Grass cake is a block? In animal feed, grass cake is compressed hay into blocks. So answer C.
+
+Need final line exactly: Answer: C
+Answer: C
+MODEL_OUTPUT_END
+
+===== CASE 3/8 AIME2025 aime2025-01 =====
+source: AIME2025
+id: aime2025-01
+status: PASSED
+picked: __sentinel__
+MODEL_OUTPUT_BEGIN bytes=812
+We need answer problem. Need solve. Problem: "Find the sum of all integer bases b>9 for which 17_b is a divisor of 97_b." Need interpret notation: 17_b means number represented in base b with digits 1 and 7, value = 1*b + 7 = b+7. 97_b = 9*b + 7 = 9b+7. Need bases integer >9 such that (b+7) divides (9b+7). Find sum of all such b.
+
+We need solve. Let's do.
+
+Need b>9 integer. Divisibility: b+7 | 9b+7. Since 9b+7 = 9(b+7) - 56? Compute 9(b+7)=9b+63, so 9b+7 = 9(b+7)-56. Thus b+7 divides 9b+7 iff b+7 divides 56. Because if d=b+7, d | 9b+7 and d | 9(b+7) => d | (9b+63 - (9b+7))=56. Yes.
+
+So need b+7 divisor of 56, with b>9 => b+7 >16. Divisors of 56: 1,2,4,7,8,14,28,56. Those >16: 28,56. So b=21 or 49. Sum =70. Check bases >9 integer. Yes.
+
+Need final line exactly "Answer: <integer>". Answer 70.
+Answer: 70
+MODEL_OUTPUT_END
+
+===== CASE 4/8 GPQA Diamond recoiTJPGUmzAkief =====
+source: GPQA Diamond
+id: recoiTJPGUmzAkief
+status: PASSED
+picked: __sentinel__
+MODEL_OUTPUT_BEGIN bytes=9964
+We need answer physics. Need reason carefully. Problem: uncharged spherical conductor radius R with small spherical cavity inside. Center of cavity separated by distance s from center of conductor. Cavity radius r, r<R. Positive charge +q placed somewhere inside cavity. What is magnitude electric field at point P outside spherical conductor distance L from center of conductor? Note distance of P from center of cavity is l. Here l,L > R. Angle between l and s is θ. Choices.
+
+We need determine E outside conductor. Conductor uncharged overall, but has cavity with charge inside. Need induced charges on cavity surface and outer surface? Since conductor neutral, charge +q inside cavity induces -q on inner cavity surface, and +q on outer surface of conductor (since total conductor zero). The field outside a spherical conductor? Outer surface charge distribution? For isolated spherical conductor with no external fields, the outer surface charge +q distributes uniformly over outer sphere? But there is also induced charges on cavity; does cavity affect outer surface distribution? In electrostatic equilibrium, conductor exterior surface charge density uniform if conductor is spherical and isolated? The cavity inside creates nonuniform field inside conductor? But inside conductor E=0. The outer surface charge must produce field outside as if all +q at center of sphere? Wait: For a spherical conductor with a cavity containing charge q, the outer surface has total charge +q (since conductor neutral). If no external fields and conductor is spherical, the outer surface charge distributes uniformly over outer surface regardless of cavity location? Need check: The conductor material between cavity and outer surface. The electric field inside conductor zero. The boundary conditions: On outer surface, E just outside is normal and surface charge density σ = ε0 E_out. For a spherical conductor with total charge Q on outer surface, uniform distribution gives E = Q/(4π ε0 R^2) outward at surface, and outside E = Q/(4π ε0 L^2) radial from center. But does cavity charge/induced inner charges create field at outer surface? Inside conductor E=0 due to superposition of fields from q, inner induced charges, and outer surface charges. The outer surface charges adjust to cancel any field inside conductor. For spherical outer boundary, if total outer charge Q=+q, uniform distribution yields zero field inside conductor (from outer charges) because shell uniform has no field inside. Then the field inside conductor due to q + cavity induced charges must also be zero? Actually q and inner induced charges produce field in conductor? The cavity surface induced -q arranged such that field outside cavity (in conductor) is zero? For a spherical cavity with point charge off-center, induced charges on cavity surface create field that cancels q outside cavity? Yes inside conductor E=0. So outer uniform +q produces no field inside conductor. Thus independent. Outside field from outer surface only? The inner cavity charges are enclosed by conductor; their fields do not penetrate outside because conductor shields? But total charge on outer surface +q gives field as if point charge at center of outer sphere: E = q/(4π ε0 L^2). Choice C.
+
+But need be careful: The problem says "small amount of positive charge +q is somehow placed somewhere inside the cavity." It asks magnitude at P outside spherical conductor distance L from centre of spherical conductor. Note distance of P from centre of cavity is l. Here l,L > R. Angle between l and s is θ. Choices include expressions using l and s cosθ. This suggests maybe field depends on position of charge relative to cavity? But outside a conductor, due to Faraday cage, field outside depends only on net charge on outer surface and geometry. For spherical conductor, uniform outer surface -> E = q/(4π ε0 L^2). However, if the conductor is uncharged but has +q inside cavity, outer surface gets +q induced? Yes total conductor zero: inner cavity surface -q, outer surface +q. So outside field same as point charge at center of sphere. The distance l from P to cavity center and angle θ irrelevant. Choice C.
+
+But let's examine possible trick: "uncharged spherical conductor" with cavity. Charge q inside cavity. The outer surface charge distribution may not be uniform if the inner cavity induces nonuniform? Wait, for a spherical conductor with an off-center cavity containing charge, is outer surface charge uniform? Let's rigorously check.
+
+Electrostatic equilibrium in conductor: E=0 inside metal. There are charges: +q at some point inside cavity (not necessarily center), induced negative charges on cavity wall, and positive charges on outer surface. The field in the metal region is zero. The field outside due to outer surface charges? For a spherical conductor, if outer surface charge density is uniform, its field inside conductor is zero (shell theorem). But does it need to be uniform to satisfy E=0 in metal given cavity charges? The cavity charges produce nonzero field in the metal region (outside cavity but inside sphere) because cavity is off-center and q not symmetric. To cancel that field throughout the metal, outer surface charges must produce a nonuniform field inside conductor equal and opposite. But can a charge distribution on a spherical surface produce a uniform or specific field inside? Yes surface charges can create fields inside. The outer surface charge distribution will be nonuniform to shield cavity fields. Then outside field may not be simply q/(4π ε0 L^2)? Wait, but the conductor is spherical and isolated; uniqueness with boundary conditions: Outside potential on sphere constant (conductor). Total charge on outer surface +q. The exterior solution for a spherical conductor at constant potential with total charge Q is unique: potential outside = Q/(4π ε0 r) (if reference infinity zero), independent of interior. Because Laplace equation outside sphere with boundary V=constant on sphere and total charge? Actually if conductor surface is equipotential, the exterior field depends only on total charge and shape; any nonuniform surface charge would produce nonconstant potential outside? For a spherical conductor, the unique solution for exterior with constant potential and total charge Q is uniform surface charge. But wait: The outer surface charge distribution can be nonuniform while still making sphere equipotential? For a conducting sphere in isolation, surface charge must be uniform because rotational symmetry? If there are internal charges/cavity, they break symmetry but conductor is spherical; however the exterior boundary condition at infinity and constant potential on sphere. The potential outside satisfies Laplace with boundary V=constant on sphere. The solution with total charge Q is V=Q/(4π ε0 r) (plus constants). This implies surface charge uniform. But does internal cavity affect exterior potential? The conductor volume excludes cavity; the outer surface potential constant, but there are charges inside cavity and inner surface. The exterior region is outside sphere; the conductor shields interior. The potential in exterior satisfies Laplace with boundary V=constant on sphere and at infinity zero. There is no source outside. The solution independent of interior. So yes uniform.
+
+But wait: The outer surface charge distribution may not be uniform if there are charges inside cavity? Consider a grounded conducting sphere with a point charge nearby outside: surface charge nonuniform, exterior field not simply point charge at center. But here the conductor is uncharged and isolated; internal charge q induces +q on outer surface. However, because the conductor is spherical and no external sources, the outer surface charge must be uniform? Let's test with superposition: Suppose outer surface has uniform +q. Its field inside conductor is zero. The cavity charges (q and inner -q) produce field in metal? For a spherical cavity with arbitrary q inside, induced charges on cavity wall are such that field outside cavity is zero? Is that true? If cavity is spherical and conducting boundary, the induced surface charge distribution on cavity wall due to q inside makes field zero in conductor outside cavity. Yes because conductor cannot have field; the cavity wall charges cancel q's field in the metal. So the field from q + inner wall charges is zero throughout the metal (outside cavity). Thus outer uniform +q alone also gives zero in metal, so total E=0. Therefore uniform outer works. But is it unique? The outer surface charge distribution must produce zero field inside conductor and also satisfy total +q. Uniform spherical shell produces zero field inside. So yes. Could there be another distribution on outer sphere that produces zero field inside and total +q? A spherical surface charge distribution can produce nonzero field inside; but to have E=0 throughout the metal, the potential inside from outer charges must be constant in the region between cavity and outer surface (excluding cavity). Uniform shell gives constant potential. Nonuniform spherical surface with total Q generally produces nonconstant potential inside, so would create field in conductor unless combined with cavity charges? But cavity charges already produce zero in metal; adding nonuniform outer would violate. So uniform.
+
+Thus answer C.
+
+But choices include A/D with l and s cosθ. Need final line exactly "Answer: C". Let's ensure no issue: The question says "small amount of positive charge +q is somehow placed somewhere inside the cavity." It might be from classic problem: Field outside a conductor with cavity depends only on net charge? Actually if conductor is uncharged, placing q in cavity induces -q on inner surface and +q on outer surface. Outside field due to +q on outer surface of spherical conductor is as if q at center of sphere. So E = q/(4π ε0 L^2). Choice C.
+
+Need final only.
+Answer: C
+MODEL_OUTPUT_END
+
+===== CASE 5/8 SuperGPQA b7e20eac98764fb0bf30e8366d951daa =====
+source: SuperGPQA
+id: b7e20eac98764fb0bf30e8366d951daa
+status: PASSED
+picked: __sentinel__
+MODEL_OUTPUT_BEGIN bytes=10638
+We need answer. Need solve. Question: "Given a brick masonry compression member with e/h=0.18; height-to-thickness ratio β=17, seismic fortification intensity of 7 degrees, and Class II site soil, please select a masonry structural component plan that is safe and reliable, economically reasonable, and convenient for construction is()." Choices A-J.
+
+Need identify correct option based on Chinese code? Brick masonry compression member with eccentricity e/h=0.18, β=17, seismic intensity 7, site class II. Need select masonry structural component plan safe/reliable economical convenient. Likely from "砌体结构设计规范" or seismic design. For brick masonry walls under earthquake, when certain conditions require reinforced masonry? Let's parse.
+
+Given e/h=0.18 (eccentricity ratio), β=17 (height/thickness ratio), seismic fortification intensity 7 degrees, site soil Class II. Need choose structural plan. Options include various masonry types. The correct likely "Composite masonry of brickwork and reinforced concrete surface layer or reinforced mortar layer" (J) because for brick masonry compression members with large eccentricity and high slenderness under seismic, need reinforced masonry? Let's investigate.
+
+This appears from Chinese professional exam: "某砖砌体受压构件，e/h=0.18，β=17，抗震设防烈度7度，场地类别II类，试选择安全可靠、经济合理、施工方便的砌体结构方案是()" Options. Need know code provisions.
+
+Masonry structure seismic design: For brick masonry walls, when e/h > 0.15? Or β > ? Need use "砌体结构设计规范" (GB50003) and "建筑抗震设计规范". There are restrictions on use of plain masonry in seismic zones. For 7度, certain conditions require "网状配筋砖砌体" or "组合墙"? Let's recall.
+
+In GB50003-2011, Chapter 8? "受压构件" with eccentricity. For brick masonry members, if e/h > 0.15 and β > ? Need adopt reinforced masonry? There is a clause: "对于无筋砌体受压构件，其偏心距e不宜大于0.15h; 当e>0.15h时，宜采用组合砖砌体；..." Also height-to-thickness ratio β maybe limit.
+
+Question asks "select a masonry structural component plan that is safe and reliable, economically reasonable, and convenient for construction". Given e/h=0.18 > 0.15? β=17. Seismic intensity 7, site II. Need choose composite masonry (brickwork + reinforced concrete surface layer or reinforced mortar layer) because plain brick masonry cannot meet? Let's verify.
+
+Options:
+A Rammed earth wall with smooth finish and vibration resistance core - not brick masonry.
+B Fired-clay bricks laid with vertical hollow cores and cement grout - maybe "砌块砌体"? 
+C Double-wythe brickwork with no additional structural reinforcement - plain brick masonry, not enough.
+D Interlocked clay tiles with hydraulic cement overlay layer - not.
+E Plain brickwork with external stucco finish for added resistance - plain + stucco non-structural.
+F Solid concrete blocks with thin layer of non-structural mortar - concrete block masonry plain.
+G Lightweight aerated concrete blocks with surface bonding agent - AAC masonry.
+H Masonry wall with external veneer and minimal reinforcement component - not structural.
+I Hollow-core brick masonry with unbonded reinforcing bars - maybe reinforced? Unbonded bars? 
+J Composite masonry of brickwork and reinforced concrete surface layer or reinforced mortar layer - composite masonry.
+
+Given e/h=0.18 > 0.15, β=17 (maybe β ≤ ?). For brick masonry compression member, if eccentricity ratio exceeds 0.15, need "组合砖砌体" (composite brick masonry with reinforced concrete/mortar surface) per code. Also seismic intensity 7 and site II? Need maybe "网状配筋砖砌体" for axial? But e/h large.
+
+Let's recall exact Chinese code: GB50003-2011 "砌体结构设计规范" Article 8.2.3? For偏心受压构件, "无筋砌体受压构件的偏心距e不应大于0.15h; 当e大于0.15h时，应采用组合砖砌体或配筋砌块砌体。" Also "对于砖砌体，β不宜超过17"? Hmm.
+
+Question includes β=17 exactly maybe threshold. In code, "无筋砌体受压构件高厚比β不应超过17" for brick? Actually "承重墙体的高厚比限值" depends. For受压构件, β = H0/h. If β > 17? Need reinforced? Let's search memory.
+
+GB50003-2011 Section 6.2? "无筋砌体受压构件的计算" has "β不宜大于17" for砖砌体? There is "当偏心受压构件 e/h > 0.15 或 β > 17 时，应采用组合砖砌体..." Maybe.
+
+Question: Given e/h=0.18; β=17, seismic fortification intensity 7 degrees, Class II site soil. Need select masonry structural component plan safe reliable economical convenient. The correct likely J because both e/h>0.15 and β=17? But β=17 not >17. However e/h=0.18 >0.15 triggers composite.
+
+Need ensure seismic fortification intensity 7 and site class II also impose restrictions: In seismic design, "砖砌体结构" at 7度, certain height limits; if using "普通砖砌体" with "实心砖" maybe allowed up to certain height. But question asks "masonry structural component plan" for a compression member (not building). Need choose from options.
+
+Let's reason through code clauses.
+
+Maybe there is a known problem: "某砖砌体受压构件，e/h=0.18，β=17，抗震设防烈度7度，场地类别Ⅱ类，试选择安全可靠、经济合理、施工方便的砌体结构方案是()" Options from "注册结构工程师" exam. Answer maybe "J. 组合砖砌体：砖砌体和钢筋混凝土面层或钢筋砂浆面层". Because e/h=0.18 > 0.15, per "砌体规范" 8.2.1? Let's confirm.
+
+Let's identify all options:
+A Rammed earth wall with smooth finish and vibration resistance core - not brick masonry, likely not.
+B Fired-clay bricks laid with vertical hollow cores and cement grout - This is "空心砖砌体"? Maybe "竖孔砖" with grout? Could be reinforced? 
+C Double-wythe brickwork with no additional structural reinforcement - plain double wythe.
+D Interlocked clay tiles with hydraulic cement overlay layer - not.
+E Plain brickwork with external stucco finish for added resistance - plain + stucco (non-structural).
+F Solid concrete blocks with thin layer of non-structural mortar - plain concrete block masonry.
+G Lightweight aerated concrete blocks with surface bonding agent - AAC masonry, not suitable? 
+H Masonry wall with external veneer and minimal reinforcement component - veneer not structural.
+I Hollow-core brick masonry with unbonded reinforcing bars - "无粘结钢筋" maybe not effective? 
+J Composite masonry of brickwork and reinforced concrete surface layer or reinforced mortar layer - composite.
+
+Given e/h=0.18, β=17, seismic 7, site II. Need "safe reliable, economical reasonable, convenient construction". Composite masonry is more expensive but necessary due to eccentricity >0.15. Could there be another option "B Fired-clay bricks laid with vertical hollow cores and cement grout" which is "配筋砖砌体"? Let's examine.
+
+"Fired-clay bricks laid with vertical hollow cores and cement grout" - This sounds like "混凝土空心砌块" or "烧结空心砖" with grouted cores? In Chinese, "烧结普通砖" solid; "烧结多孔砖" has vertical holes. If laid with vertical hollow cores and cement grout, can place reinforcement in cores? But option says "cement grout" not reinforcing bars. It might be "砌块砌体灌孔混凝土" (grouted concrete masonry) which improves strength but not reinforced? Actually "fired-clay bricks laid with vertical hollow cores and cement grout" = "空心砖砌体，竖孔灌浆" maybe "配筋砌块砌体"? But no mention reinforcing bars. Could be "brick masonry with vertical holes filled with concrete" to increase cross-section? Not composite.
+
+Option I "Hollow-core brick masonry with unbonded reinforcing bars" - This is "无粘结预应力?" Unbonded reinforcing bars in hollow cores? Maybe "配筋砌体" with post-tensioned? But unbonded bars not reliable? 
+
+Question wording: "select a masonry structural component plan that is safe and reliable, economically reasonable, and convenient for construction is()" It's likely from code-based selection. Need choose J.
+
+Let's ensure no other condition: seismic fortification intensity 7 degrees, Class II site soil. In seismic design, for brick masonry walls with e/h=0.18 and β=17, maybe "网状配筋砖砌体" (wire mesh reinforced brick masonry) is suitable? But options don't include mesh reinforcement except J composite. There is "组合砖砌体" specifically for偏心受压构件 when e/h > 0.15. Also "网状配筋砖砌体" for axial compression with small eccentricity? Let's recall: 
+- 无筋砌体受压构件: e ≤ 0.15h, β ≤ ? 
+- 网状配筋砖砌体 (reinforced by mesh) can improve axial and eccentric? It is used when e/h ≤ 0.17? Actually "网状配筋砖砌体" applicable to axial compression or small eccentricity (e/h ≤ 0.17?) and β ≤ 16? 
+- 组合砖砌体 (composite brick masonry with reinforced concrete/mortar surface) for large eccentricity e/h > 0.15? 
+
+Given e/h=0.18, β=17. Need composite.
+
+Let's recall exact from GB50003:
+"8.2 配筋砖砌体构件
+8.2.1 网状配筋砖砌体受压构件，应符合下列要求：
+  1 偏心距e不宜超过0.17h，且β不应大于16；
+  2 对于矩形截面，...
+"
+"8.3 组合砖砌体构件
+8.3.1 当无筋砖砌体受压构件的偏心距e大于0.15h时，宜采用组合砖砌体；当β大于...?"
+Maybe.
+
+Thus e/h=0.18 >0.17, so mesh reinforcement not enough; composite needed. β=17 maybe also >16 for mesh. So J.
+
+Need final answer exactly "Answer: J". But need include reasoning? User asks solve and final line format. We can provide concise explanation then final line. Need no extra after final line. Final line exactly "Answer: <letter>". They said "At the end, write exactly one final line in this format and do not write anything after it:" So final answer should be just Answer: J? Maybe include reasoning before? It says "Solve the question. At the end, write exactly one final line..." We can include explanation then final line. But final line must be exact. Need ensure no extra after. I'll provide brief reasoning and final line.
+
+Let's craft: e/h=0.18 > 0.15, β=17; plain brick masonry not allowed for large eccentricity; need composite masonry with reinforced concrete/mortar surface layer (J). Seismic 7/site II doesn't change. Answer J.
+
+Final line: Answer: J
+The eccentricity ratio \(e/h=0.18\) exceeds the limit for plain brick masonry, so a composite masonry system with a reinforced concrete or reinforced mortar surface layer is required for safety and reliability.
+
+Answer: J
+MODEL_OUTPUT_END
+
+===== CASE 6/8 AIME2025 aime2025-16 =====
+source: AIME2025
+id: aime2025-16
+status: PASSED
+picked: __sentinel__
+MODEL_OUTPUT_BEGIN bytes=1853
+We need answer geometry. Need solve. Let's restate.
+
+Six points A,B,C,D,E,F lie on a straight line in that order. G not on line. Given distances along line: AC=26, BD=22, CE=31, DF=33, AF=73. Also CG=40, DG=30. Find area triangle BGE.
+
+We need determine positions on line and perpendicular height of G relative to line from distances to C,D. Then compute area BGE = 1/2 * BE * height (distance from G to line). Need find BE length along line and height h.
+
+Let line coordinate x. Let A at 0? Or choose coordinates. Points in order A,B,C,D,E,F. Distances:
+AC=26 => C-A=26.
+BD=22 => D-B=22.
+CE=31 => E-C=31.
+DF=33 => F-D=33.
+AF=73 => F-A=73.
+
+Let variables gaps: AB=x, BC=y, CD=z, DE=u, EF=v. All positive.
+AC = x+y =26.
+BD = y+z =22.
+CE = z+u =31.
+DF = u+v =33.
+AF = x+y+z+u+v =73.
+
+Need solve. Sum AC + DF? x+y+u+v = 26+33=59, plus z =73 => z=14. Then BD: y+14=22 => y=8. AC: x+8=26 => x=18. CE:14+u=31=> u=17. DF:17+v=33=> v=16. So gaps: AB=18, BC=8, CD=14, DE=17, EF=16. Total 73.
+
+Coordinates: set A=0. B=18, C=26, D=40, E=57, F=73. Check BD=22 (40-18), CE=31 (57-26), DF=33 (73-40). Good.
+
+G not on line, distances to C and D: CG=40, DG=30. CD=14 along line. Need height h relative to line. Let coordinate x along line, y perpendicular. C=(26,0), D=(40,0). G=(x,h) with h>0 (or absolute). Distances:
+(x-26)^2 + h^2 = 40^2 =1600.
+(x-40)^2 + h^2 =30^2=900.
+Subtract: (x-26)^2 - (x-40)^2 =700. Compute: (x^2 -52x+676) - (x^2 -80x+1600)=28x -924? 676-1600=-924; -52x+80x=28x => 28x -924 =700 => 28x=1624 => x=58. So G projection coordinate x=58. Then h^2 =1600 - (58-26)^2 =1600 -32^2=1600-1024=576 => h=24. Also check DG: (18)^2+576=900 yes.
+
+So G is at x=58, height 24 above line. B=(18,0), E=(57,0). BE length =39. Area triangle BGE = 1/2 * base BE * height = 1/2*39*24 = 468. Need integer answer.
+
+Need final exactly "Answer: <integer>".
+Answer: 468
+MODEL_OUTPUT_END
+
+===== CASE 7/8 GPQA Diamond rec4UqStf9WUVif1f =====
+source: GPQA Diamond
+id: rec4UqStf9WUVif1f
+status: PASSED
+picked: __sentinel__
+MODEL_OUTPUT_BEGIN bytes=813
+We need answer physics. Need solve. Problem: Pi+ -> mu+ + nu_mu? Pion at rest. Rest masses m_pi=139.6 MeV, m_mu=105.7 MeV. Neutrino mass negligible? Need kinetic energies of product particles in two-body decay. Use conservation energy/momentum.
+
+For decay A -> B + C with A at rest. m_A = M, m_B=m, m_C=0 (neutrino). Then energy of muon: E_mu = (M^2 + m^2)/(2M)? For massless second: E_B = (M^2 - m_C^2 + m_B^2)/(2M) = (M^2 + m^2)/(2M). Momentum magnitude p = sqrt(E_mu^2 - m^2) =? Also p = (M^2 - m^2)/(2M)? Let's compute.
+
+M=139.6, m=105.7. M^2? 139.6^2 = 19488.16? 105.7^2 = 11172.49. Sum = 30660.65. Divide 2M=279.2 => E_mu = 109.82 MeV. KE_mu = E - m = 4.12 MeV. Neutrino energy = M - E_mu = 29.78 MeV (since massless KE=E). Choices B: 4.12 MeV, 29.8 MeV. Yes.
+
+Need final line exactly "Answer: B".
+Answer: B
+MODEL_OUTPUT_END
+
+===== CASE 8/8 SuperGPQA 4a1d1780a93f4093b6fb7d3c314cbea8 =====
+source: SuperGPQA
+id: 4a1d1780a93f4093b6fb7d3c314cbea8
+status: PASSED
+picked: __sentinel__
+MODEL_OUTPUT_BEGIN bytes=740
+We need answer. Question: "key factor in selecting a reasonable amount of blasting charge in mining blasting operations?" Choices. Need identify. In blasting operations, charge amount depends on rock hardness? Typically blasting charge calculation based on rock characteristics (hardness, density, etc.) and blast pattern. But "reasonable amount" maybe "ore hardness" because need energy to break rock. Let's evaluate.
+
+Question wording: "key factor in selecting a reasonable amount of blasting charge" In mining blasting, factors include blast pattern, hole diameter, burden, spacing, rock hardness. Among choices, ore hardness is key. Also ore density? But hardness more relevant. Answer E.
+
+Need final line exactly "Answer: E".
+Answer: E
+MODEL_OUTPUT_END
+

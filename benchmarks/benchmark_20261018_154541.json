@@ -1,0 +1,73 @@
+{
+  "telemetry": {
+    "cpu_model": "AMD RYZEN AI MAX+ 395 w/ Radeon 8060S",
+    "kernel": "7.0.0-38-generic",
+    "ram_gb": 128.0,
+    "gpu_target": "gfx1151 (Radeon 8060S)",
+    "timestamp": "2026-10-18T15:45:03.274223"
+  },
+  "summary": {
+    "average_decode_tps": 17.7,
+    "average_ttft_ms": 784.26,
+    "average_draft_acceptance_pct": 47.1,
+    "total_prompts": 4
+  },
+  "results": [
+    {
+      "name": "Binary Search Tree (Python)",
+      "category": "Code Generation",
+      "prompt_tokens": 23,
+      "ttft_ms": 737.71,
+      "completion_tokens": 200,
+      "decode_ms": 12124.06,
+      "decode_tps": 16.41,
+      "draft_tokens": 322,
+      "draft_accepted": 134,
+      "draft_acceptance_pct": 41.6,
+      "repetition_detected": false,
+      "total_time_s": 12.89
+    },
+    {
+      "name": "Math Puzzle (Widget Factory)",
+      "category": "Reasoning & Logic",
+      "prompt_tokens": 37,
+      "ttft_ms": 781.9,
+      "completion_tokens": 150,
+      "decode_ms": 9520.65,
+      "decode_tps": 15.65,
+      "draft_tokens": 249,
+      "draft_accepted": 98,
+      "draft_acceptance_pct": 39.4,
+      "repetition_detected": false,
+      "total_time_s": 10.33
+    },
+    {
+      "name": "JSON Entity Extractor",
+      "category": "Structured Extraction",
+      "prompt_tokens": 40,
+      "ttft_ms": 845.71,
+      "completion_tokens": 100,
+      "decode_ms": 4844.68,
+      "decode_tps": 20.43,
+      "draft_tokens": 126,
+      "draft_accepted": 73,
+      "draft_acceptance_pct": 57.9,
+      "repetition_detected": false,
+      "total_time_s": 5.72
+    },
+    {
+      "name": "UMA vs Discrete Architecture",
+      "category": "Technical Writing",
+      "prompt_tokens": 26,
+      "ttft_ms": 771.72,
+      "completion_tokens": 150,
+      "decode_ms": 8141.89,
+      "decode_tps": 18.3,
+      "draft_tokens": 212,
+      "draft_accepted": 105,
+      "draft_acceptance_pct": 49.5,
+      "repetition_detected": false,
+      "total_time_s": 8.94
+    }
+  ]
+}
